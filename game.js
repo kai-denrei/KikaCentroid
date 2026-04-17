@@ -82,8 +82,7 @@ const dom = {
   canvasWrap:    $('canvas-wrapper'),
   scoreRow:      $('score-row'),
   idleScreen:    $('idle-screen'),
-  hudRound:      $('hud-round'),
-  hudR:          $('hud-r'),
+  subtitle:      $('subtitle'),
   hudDiff:       $('hud-diff'),
   hudTimerWrap:  $('hud-timer-wrap'),
   hudTimer:      $('hud-timer'),
@@ -323,6 +322,7 @@ function hardReset() {
 }
 
 function begin() {
+  dismissIosHint();
   hardReset();
   S.phase = 'countdown';
   showBoard();
@@ -396,7 +396,6 @@ function showBoard() {
   dom.idleScreen.hidden    = true;
   dom.canvasWrap.hidden    = false;
   dom.scoreRow.hidden      = false;
-  dom.hudRound.hidden      = false;
   dom.hudDiff.hidden       = false;
   dom.hudTimerWrap.hidden  = false;
   sizeBoard();
@@ -405,17 +404,36 @@ function hideBoard() {
   dom.idleScreen.hidden    = false;
   dom.canvasWrap.hidden    = true;
   dom.scoreRow.hidden      = true;
-  dom.hudRound.hidden      = true;
   dom.hudDiff.hidden       = true;
   dom.hudTimerWrap.hidden  = true;
+}
+
+// Unicode round-progress bar — 20 chars wide, 2 per round.
+// `round` is the round currently being played (1..MAX_ROUNDS) or 0 before start.
+const IDLE_SUBTITLE = '10 rounds · lowest score wins';
+function progressBarHTML(round) {
+  const segs   = MAX_ROUNDS;
+  const filled = Math.max(0, Math.min(segs, round));
+  return (
+    `<span class="bar-filled">${'█'.repeat(filled * 2)}</span>` +
+    `<span class="bar-empty">${'▒'.repeat((segs - filled) * 2)}</span>`
+  );
 }
 
 function updateUI() {
   const p = S.phase;
 
+  // Subtitle: idle text on the welcome screen, progress bar everywhere else.
+  if (p === 'idle') {
+    dom.subtitle.textContent = IDLE_SUBTITLE;
+    dom.subtitle.classList.remove('progress');
+  } else {
+    dom.subtitle.innerHTML = progressBarHTML(S.round);
+    dom.subtitle.classList.add('progress');
+  }
+
   if (p === 'playing' || p === 'downtime' || p === 'countdown') {
     const r = Math.max(S.round, 1);
-    dom.hudR.textContent = String(Math.min(S.round, MAX_ROUNDS));
     const diff = diffFor(r);
     dom.hudDiff.textContent = diff.name;
     dom.hudDiff.style.color = diff.color;
@@ -585,13 +603,19 @@ const ua = navigator.userAgent;
 const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
 const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
 
-if (isIOS && isSafari && !isStandalone && !localStorage.getItem('kc-ios-hint-dismissed')) {
-  setTimeout(() => { dom.iosHint.hidden = false; }, 2500);
-}
-dom.iosHintClose.addEventListener('click', () => {
+let iosHintTimer = null;
+function dismissIosHint() {
+  if (iosHintTimer) { clearTimeout(iosHintTimer); iosHintTimer = null; }
+  if (dom.iosHint.hidden) return;
   dom.iosHint.hidden = true;
   localStorage.setItem('kc-ios-hint-dismissed', '1');
-});
+}
+if (isIOS && isSafari && !isStandalone && !localStorage.getItem('kc-ios-hint-dismissed')) {
+  iosHintTimer = setTimeout(() => { dom.iosHint.hidden = false; }, 2500);
+}
+// Tap anywhere on the hint dismisses it (including the × close button,
+// which bubbles up). Press START GAME also dismisses — wired in begin().
+dom.iosHint.addEventListener('click', dismissIosHint);
 
 // ── Service worker registration ──────────────────────────────────────────
 if ('serviceWorker' in navigator) {

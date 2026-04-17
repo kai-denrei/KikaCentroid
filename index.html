@@ -28,12 +28,11 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v4</span>
+      <span id="app-version" class="version" aria-label="version">v5</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
     <button id="btn-link" type="button" class="tbtn" aria-label="Copy link">Link</button>
-    <span id="hud-round" class="hud" hidden>R<span id="hud-r">0</span>/10</span>
     <span id="hud-diff" class="hud" hidden></span>
     <span id="hud-timer-wrap" class="hud" hidden>
       <span class="hud-icon" aria-hidden="true">⏱</span>
@@ -51,7 +50,7 @@
 
       <div class="title-block">
         <h1 class="title">Centroid (x̄, ȳ) — GRID FAST</h1>
-        <p class="subtitle">10 rounds · lowest score wins</p>
+        <p id="subtitle" class="subtitle">10 rounds · lowest score wins</p>
       </div>
 
       <div id="score-row" class="score-row" hidden>
