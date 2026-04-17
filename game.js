@@ -434,7 +434,7 @@ function updateUI() {
   if      (p === 'idle')                                dom.hint.textContent = 'Tap START GAME to begin';
   else if (p === 'playing' && !S.guess)                 dom.hint.textContent = 'Tap a cell to place your guess';
   else if (p === 'playing' && S.guess && !S.showResult) dom.hint.textContent = 'Tap same cell or VALIDATE to confirm';
-  else                                                  dom.hint.textContent = '';
+  else                                                  dom.hint.textContent = '…';
 }
 
 // ── Buttons ──────────────────────────────────────────────────────────────
