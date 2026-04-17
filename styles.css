@@ -80,12 +80,24 @@ button {
   z-index: 50;
 }
 
+.brand-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
 .brand {
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--ink);
   text-transform: uppercase;
   font-weight: 600;
+}
+.version {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
 }
 .toolbar-spacer { flex: 1; }
 
