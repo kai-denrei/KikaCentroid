@@ -136,7 +136,31 @@ button {
   font-weight: 700;
   color: var(--green);
 }
-.hud-penalty { color: var(--red); }
+
+/* Compact toolbar Hard Mode toggle — text only, lives left of LINK. */
+.tbtn-hard {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-mute);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.tbtn-hard:hover, .tbtn-hard:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+.tbtn-hard.on {
+  color: var(--ink);
+  text-decoration: none;
+}
+.tbtn-hard[hidden] { display: none; }
 
 /* ── Main play area ───────────────────────────────────── */
 .board-wrap {
@@ -259,20 +283,21 @@ button {
 }
 .pts-flash[hidden] { display: none; }
 
-/* Pre-grid bar: holds the 10 potential-points dots and the halo timer.
-   Sits in normal flow between TOTAL and the canvas. */
+/* Pre-grid bar: pdots flush left, halo centred under the TOTAL number,
+   right column intentionally empty so the halo sits at the page midline. */
 .pregrid {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 0 4px;
-  height: 22px;
+  height: 40px;
 }
 .pregrid[hidden] { display: none; }
 
 .potential {
+  justify-self: start;
   display: flex;
   gap: 4px;
 }
@@ -293,17 +318,17 @@ button {
 }
 
 /* Halo timer — shrinks over the 3-second pre-penalty window.
-   Visual reminder: act on intuition before the ring vanishes. */
+   Centred horizontally beneath TOTAL via its grid column. */
 .halo {
-  width: 22px;
-  height: 22px;
+  justify-self: center;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 2px solid var(--green);
   background: transparent;
-  box-shadow: 0 0 10px rgba(0, 255, 136, .45);
+  box-shadow: 0 0 14px rgba(0, 255, 136, .5);
   opacity: 0;
   transform: scale(0);
-  flex: 0 0 auto;
 }
 .halo.halo-running {
   animation: halo-shrink 3s linear forwards;
@@ -496,35 +521,6 @@ button {
   line-height: 1.5;
   margin: 0;
 }
-
-/* Hard Mode toggle — only rendered once the unlock condition is met. */
-.hard-toggle {
-  flex: 0 0 auto;
-  align-self: center;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink-mute);
-  cursor: pointer;
-  transition: color .15s, border-color .15s, background .15s;
-}
-.hard-toggle:hover,
-.hard-toggle:focus-visible {
-  border-color: var(--red);
-  color: var(--red-soft);
-  outline: none;
-}
-.hard-toggle.on {
-  border-color: var(--red);
-  color: var(--red-soft);
-  background: rgba(255, 68, 68, .08);
-}
-.hard-toggle[hidden] { display: none; }
 
 /* Recap unlock banner — shown once, the game in which ≥91 was first hit. */
 .unlock-banner {

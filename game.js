@@ -225,7 +225,6 @@ const dom = {
   hudDiff:       $('hud-diff'),
   hudTimerWrap:  $('hud-timer-wrap'),
   hudTimer:      $('hud-timer'),
-  hudPenalty:    $('hud-penalty'),
   total:         $('disp-total'),
   ptsFlash:      $('pts-flash'),
   countdown:     $('countdown-overlay'),
@@ -594,7 +593,7 @@ function showBoard() {
   dom.scoreRow.hidden      = false;
   dom.hudDiff.hidden       = false;
   dom.hudTimerWrap.hidden  = false;
-  dom.hardToggle.hidden    = true;       // hide toggle during play
+  // hard-toggle stays visible in toolbar — click is gated by phase check
   sizeBoard();
 }
 function hideBoard() {
@@ -605,7 +604,7 @@ function hideBoard() {
   dom.hudDiff.hidden       = true;
   dom.hudTimerWrap.hidden  = true;
   hideHalo();
-  syncHardToggle();                       // restore toggle visibility on idle
+  syncHardToggle();
 }
 
 // ── Halo timer ───────────────────────────────────────────────────────────
@@ -654,12 +653,6 @@ function updateUI() {
     dom.hudTimer.textContent = `0:${String(secs).padStart(2, '0')}`;
     dom.hudTimer.style.color = secs <= PENALTY_AT ? COLORS.optimal : COLORS.guessHit;
 
-    if (S.penalty > 0) {
-      dom.hudPenalty.hidden = false;
-      dom.hudPenalty.textContent = ` −${S.penalty}`;
-    } else {
-      dom.hudPenalty.hidden = true;
-    }
     renderPotentialDots();
   }
 
@@ -777,14 +770,16 @@ function flashTbtn(btn, msg, ms = 1500) {
   sx.fillRect(sOpt.x * SCELL + 2, sOpt.y * SCELL + 2, SCELL - 4, SCELL - 4);
 })();
 
-// ── Hard Mode toggle ─────────────────────────────────────────────────────
+// ── Hard Mode toggle (toolbar pill, left of LINK) ────────────────────────
 function syncHardToggle() {
   dom.hardToggle.hidden = !hardUnlocked;
-  dom.hardToggle.textContent = `Hard Mode: ${hardMode ? 'On' : 'Off'}`;
   dom.hardToggle.classList.toggle('on', hardMode);
+  dom.hardToggle.setAttribute('aria-pressed', hardMode ? 'true' : 'false');
+  dom.hardToggle.title = `Hard Mode: ${hardMode ? 'On' : 'Off'}`;
 }
 dom.hardToggle.addEventListener('click', () => {
   if (!hardUnlocked) return;
+  if (S.phase !== 'idle' && S.phase !== 'recap') return;   // only outside active play
   hardMode = !hardMode;
   localStorage.setItem('kc-hard-mode-on', hardMode ? '1' : '0');
   syncHardToggle();

@@ -28,15 +28,16 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v10</span>
+      <span id="app-version" class="version" aria-label="version">v11</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
+    <button id="hard-toggle" type="button" class="tbtn-hard" hidden aria-pressed="false">[HARD]</button>
     <button id="btn-link" type="button" class="tbtn" aria-label="Copy link">Link</button>
     <span id="hud-diff" class="hud" hidden></span>
     <span id="hud-timer-wrap" class="hud" hidden>
       <span class="hud-icon" aria-hidden="true">⏱</span>
-      <span id="hud-timer" class="hud-time">0:00</span><span id="hud-penalty" class="hud-penalty" hidden></span>
+      <span id="hud-timer" class="hud-time">0:00</span>
     </span>
   </header>
 
@@ -113,8 +114,6 @@
         <div id="btn-label" class="btn-label">START GAME</div>
         <div class="btn-sub">x̄ = (1/n) Σ xᵢ &nbsp;&nbsp; ȳ = (1/n) Σ yᵢ</div>
       </button>
-
-      <button id="hard-toggle" type="button" class="hard-toggle" hidden>Hard Mode: Off</button>
 
       <p id="hint-text" class="hint">Tap START GAME to begin</p>
 
