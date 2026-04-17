@@ -3,8 +3,8 @@
 
 // ── Constants ────────────────────────────────────────────────────────────
 const GRID       = 17;
-const CELL_MIN   = 18;          // minimum tap size in CSS px
-const BOARD_MAX  = 360;         // max board edge in CSS px
+const CELL_MIN   = 16;          // minimum cell size in CSS px (small-phone safe)
+const BOARD_MAX  = 380;         // max board edge in CSS px
 const MAX_ROUNDS = 10;
 const PENALTY_AT = 3;           // seconds before per-second penalty kicks in
 const DPR        = Math.min(window.devicePixelRatio || 1, 2);
@@ -117,13 +117,21 @@ const dom = {
 const ctx = dom.canvas.getContext('2d');
 
 // ── Canvas sizing ────────────────────────────────────────────────────────
+// The board is whatever square fits inside .canvas-wrap (which is a flex:1
+// region). Take the smaller of width/height/BOARD_MAX, snap to an integer
+// cell, and resize the backing store to match DPR.
 function sizeBoard() {
-  const wrap = dom.canvasWrap.parentElement;
-  const wrapW = wrap.clientWidth || window.innerWidth;
-  const padX = 8;
-  const target = Math.min(BOARD_MAX, wrapW - padX);
-  cellPx = Math.max(CELL_MIN, Math.floor(target / GRID));
-  boardPx = cellPx * GRID;
+  const wrap = dom.canvasWrap;
+  if (wrap.hidden) return;                       // idle screen — no board to size
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  if (!w || !h) return;
+  const target = Math.min(w, h, BOARD_MAX);
+  const newCell = Math.max(CELL_MIN, Math.floor(target / GRID));
+  const newBoard = newCell * GRID;
+  if (newCell === cellPx && dom.canvas.width === newBoard * DPR) return;
+  cellPx  = newCell;
+  boardPx = newBoard;
 
   dom.canvas.width        = boardPx * DPR;
   dom.canvas.height       = boardPx * DPR;
@@ -136,6 +144,15 @@ function sizeBoard() {
 
 const ro = new ResizeObserver(() => sizeBoard());
 ro.observe(document.body);
+ro.observe(dom.canvasWrap);
+
+// orientationchange fires before layout settles on iOS; rAF after it.
+window.addEventListener('orientationchange', () => {
+  requestAnimationFrame(() => requestAnimationFrame(sizeBoard));
+});
+
+// Block context menu on the canvas (long-press selection on touch).
+dom.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Draw ─────────────────────────────────────────────────────────────────
 function draw() {

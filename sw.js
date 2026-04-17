@@ -4,7 +4,7 @@
 // Bump CACHE_VERSION whenever any precached file changes — the new SW will
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
 

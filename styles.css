@@ -1,4 +1,4 @@
-/* KikaCentroid — minimal, mobile-first, dark, monospaced */
+/* KikaCentroid — fullscreen, no-scroll, mobile-first. */
 
 :root {
   --bg:           #05050a;
@@ -25,7 +25,8 @@
   --safe-left:   env(safe-area-inset-left);
   --safe-right:  env(safe-area-inset-right);
 
-  --toolbar-h: 44px;
+  --toolbar-h: 40px;
+  --gap: 10px;
 }
 
 * { box-sizing: border-box; }
@@ -40,31 +41,38 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior: none;
-  touch-action: manipulation;
 }
 
+html { height: 100%; }
+
+/* Lock the viewport: no page scroll, no rubber-band, no pinch/pan gestures
+   anywhere except where explicitly opted in (modal). */
 body {
-  min-height: 100dvh;
-  padding-top: calc(var(--toolbar-h) + var(--safe-top));
-  padding-bottom: calc(16px + var(--safe-bottom));
-  padding-left:   var(--safe-left);
-  padding-right:  var(--safe-right);
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   display: flex;
   flex-direction: column;
 }
 
-button { font: inherit; color: inherit; }
+button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* ── Toolbar ──────────────────────────────────────────── */
 .toolbar {
-  position: fixed;
-  inset: 0 0 auto 0;
+  flex: 0 0 auto;
   height: calc(var(--toolbar-h) + var(--safe-top));
-  padding: var(--safe-top) calc(12px + var(--safe-right)) 0 calc(12px + var(--safe-left));
+  padding: var(--safe-top) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(5, 5, 9, 0.97);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -73,29 +81,26 @@ button { font: inherit; color: inherit; }
 }
 
 .brand {
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--ink);
   text-transform: uppercase;
-  user-select: none;
   font-weight: 600;
 }
-
 .toolbar-spacer { flex: 1; }
 
 .tbtn {
   font-family: inherit;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 5px 10px;
+  padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--ink-mute);
   transition: color .15s, border-color .15s;
-  min-height: 28px;
 }
 .tbtn:hover, .tbtn:focus-visible {
   color: var(--cyan);
@@ -105,8 +110,8 @@ button { font: inherit; color: inherit; }
 .tbtn[hidden] { display: none; }
 
 .hud {
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
   color: var(--ink-mute);
   text-transform: uppercase;
   white-space: nowrap;
@@ -115,20 +120,20 @@ button { font: inherit; color: inherit; }
 .hud-icon { margin-right: 2px; }
 .hud-time {
   font-family: var(--digital);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--green);
 }
 .hud-penalty { color: var(--red); }
 
-/* ── Main ─────────────────────────────────────────────── */
+/* ── Main play area ───────────────────────────────────── */
 .board-wrap {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 16px 12px;
+  padding: 8px calc(10px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(10px + var(--safe-left));
 }
 
 .card {
@@ -136,25 +141,30 @@ button { font: inherit; color: inherit; }
   max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap);
+  min-height: 0;
 }
 
-.title-block { text-align: center; }
+.title-block {
+  flex: 0 0 auto;
+  text-align: center;
+}
 .title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--ink);
   margin: 0;
 }
 .subtitle {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-mute);
   letter-spacing: 0.05em;
-  margin: 3px 0 0;
+  margin: 2px 0 0;
 }
 
 .score-row {
+  flex: 0 0 auto;
   display: flex;
   justify-content: center;
   gap: 32px;
@@ -163,25 +173,28 @@ button { font: inherit; color: inherit; }
 .score-row[hidden] { display: none; }
 .score-num {
   font-family: var(--digital);
-  font-size: 36px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--cyan);
   line-height: 1;
   text-shadow: 0 0 12px rgba(0, 212, 255, .33);
 }
 .score-label {
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.2em;
   color: var(--ink-mute);
   text-transform: uppercase;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-/* ── Canvas ───────────────────────────────────────────── */
+/* ── Canvas wrap (the area the board fills) ───────────── */
 .canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
-  align-self: center;
-  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .canvas-wrap[hidden] { display: none; }
 
@@ -189,10 +202,11 @@ button { font: inherit; color: inherit; }
   display: block;
   border: 1px solid var(--line);
   border-radius: 4px;
-  cursor: crosshair;
-  touch-action: none;
-  max-width: 100%;
   background: var(--panel);
+  /* JS sets the explicit pixel size — no max-width/height needed here. */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
 }
 
 .pts-flash {
@@ -201,7 +215,7 @@ button { font: inherit; color: inherit; }
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--digital);
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 700;
   color: var(--red-soft);
   text-shadow: 0 0 16px var(--red);
@@ -213,43 +227,52 @@ button { font: inherit; color: inherit; }
 
 .countdown {
   position: absolute;
+  /* match the canvas exactly, not the wrap (which may have extra padding) */
   inset: 0;
-  background: rgba(0, 0, 0, .72);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(0, 0, 0, .72);
   z-index: 20;
   border-radius: 4px;
+  pointer-events: none;
 }
 .countdown[hidden] { display: none; }
 .countdown-text {
   font-family: var(--digital);
-  font-size: 72px;
+  font-size: 64px;
   font-weight: 700;
   color: var(--ink);
   text-shadow: 0 0 24px rgba(201, 209, 217, .4);
 }
 
-/* ── Idle ─────────────────────────────────────────────── */
+/* ── Idle screen (replaces canvas-wrap) ───────────────── */
 .idle {
+  flex: 1 1 auto;
+  min-height: 0;
   background: rgba(255, 255, 255, .03);
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
 }
 .idle[hidden] { display: none; }
 .idle-title {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
-  margin-bottom: 8px;
   letter-spacing: 0.05em;
+  flex: 0 0 auto;
 }
 .idle-body {
   font-size: 12px;
   color: var(--ink-dim);
-  line-height: 1.65;
-  margin: 0 0 12px 0;
+  line-height: 1.55;
+  margin: 0;
+  flex: 0 0 auto;
 }
 .idle-body strong { color: var(--ink); font-weight: 600; }
 .idle-body .ok { color: var(--green-soft); }
@@ -258,6 +281,7 @@ button { font: inherit; color: inherit; }
   display: flex;
   gap: 14px;
   align-items: center;
+  flex: 0 0 auto;
 }
 #sample-canvas {
   border-radius: 4px;
@@ -285,11 +309,12 @@ button { font: inherit; color: inherit; }
 .dot-green { background: var(--green-soft); }
 .dot-red   { background: var(--red-soft); }
 
-/* ── Action button ────────────────────────────────────── */
+/* ── Action button + hint ─────────────────────────────── */
 .action-btn {
+  flex: 0 0 auto;
   display: block;
   width: 100%;
-  padding: 12px 18px;
+  padding: 10px 16px;
   font-family: inherit;
   font-size: 12px;
   letter-spacing: 0.12em;
@@ -301,12 +326,8 @@ button { font: inherit; color: inherit; }
   background: rgba(0, 212, 255, .1);
   color: var(--cyan);
   text-align: center;
-  min-height: 48px;
 }
-.action-btn:disabled {
-  opacity: .45;
-  cursor: not-allowed;
-}
+.action-btn:disabled { opacity: .45; cursor: not-allowed; }
 .action-btn.is-validate {
   border-color: var(--green);
   color: var(--green);
@@ -314,32 +335,36 @@ button { font: inherit; color: inherit; }
 }
 .btn-label { font-weight: 700; }
 .btn-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ink-mute);
-  margin-top: 3px;
+  margin-top: 2px;
   letter-spacing: 0.04em;
   font-weight: 400;
 }
 
 .hint {
-  font-size: 12px;
+  flex: 0 0 auto;
+  font-size: 11px;
   color: var(--ink-mute);
   text-align: center;
   letter-spacing: 0.05em;
-  min-height: 14px;
+  /* Match the rendered line height so empty-state and full-state are equal. */
+  min-height: 1.5em;
+  line-height: 1.5;
   margin: 0;
 }
 
-/* ── iOS install hint ─────────────────────────────────── */
+/* ── iOS install hint — in-flow banner between toolbar and play area ─ */
 .ios-hint {
   position: relative;
+  flex: 0 0 auto;
+  margin: 6px calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
   font-size: 11px;
   color: var(--ink-dim);
-  background: rgba(0, 212, 255, .06);
+  background: rgba(13, 17, 23, .96);
   border: 1px solid rgba(0, 212, 255, .25);
   border-radius: 6px;
-  padding: 8px 28px 8px 10px;
-  margin: 0;
+  padding: 8px 30px 8px 10px;
   text-align: center;
   line-height: 1.45;
 }
@@ -359,7 +384,7 @@ button { font: inherit; color: inherit; }
 }
 .ios-hint-close:hover { color: var(--ink); }
 
-/* ── Recap modal ──────────────────────────────────────── */
+/* ── Recap modal (only place where touch scroll is allowed) ───── */
 .modal {
   position: fixed;
   inset: 0;
@@ -367,9 +392,7 @@ button { font: inherit; color: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  padding-top: calc(16px + var(--safe-top));
-  padding-bottom: calc(16px + var(--safe-bottom));
+  padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
 }
 .modal[hidden] { display: none; }
 .modal-backdrop {
@@ -380,20 +403,20 @@ button { font: inherit; color: inherit; }
 .modal-card {
   position: relative;
   width: min(92vw, 400px);
-  max-height: calc(100dvh - 64px);
+  max-height: 100%;
   overflow-y: auto;
+  /* re-enable vertical scroll inside the modal (body has touch-action: none). */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 20px;
+  padding: 18px;
   font-family: var(--mono);
 }
-.modal-header {
-  text-align: center;
-  margin-bottom: 16px;
-}
+.modal-header { text-align: center; margin-bottom: 14px; }
 .modal-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: 0.08em;
@@ -408,13 +431,13 @@ button { font: inherit; color: inherit; }
 
 .recap-total-box {
   text-align: center;
-  padding: 12px;
+  padding: 10px;
   background: rgba(255, 255, 255, .03);
   border-radius: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .recap-total {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--cyan);
 }
@@ -424,19 +447,19 @@ button { font: inherit; color: inherit; }
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   padding: 0;
   list-style: none;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-dim);
 }
 .recap-stats strong { color: var(--ink); font-weight: 600; }
 .recap-stats .ok { color: var(--green-soft); }
 
 .recap-rounds {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-dim);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .recap-row {
   display: flex;
@@ -447,7 +470,7 @@ button { font: inherit; color: inherit; }
 .recap-row .perfect { color: var(--green-soft); }
 
 .hist-label {
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.15em;
   color: var(--ink-mute);
   text-transform: uppercase;
@@ -457,8 +480,8 @@ button { font: inherit; color: inherit; }
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 56px;
-  margin-bottom: 18px;
+  height: 50px;
+  margin-bottom: 16px;
 }
 .hist-col {
   flex: 1;
@@ -473,18 +496,11 @@ button { font: inherit; color: inherit; }
   border-radius: 2px 2px 0 0;
   min-height: 1px;
 }
-.hist-lbl {
-  font-size: 11px;
-  color: var(--ink-mute);
-}
+.hist-lbl { font-size: 10px; color: var(--ink-mute); }
 
-.modal-actions {
-  display: flex;
-  gap: 8px;
-}
+.modal-actions { display: flex; gap: 8px; }
 .modal-actions .action-btn {
   flex: 1;
-  min-height: 40px;
   padding: 10px;
 }
 .modal-actions .action-btn:not(.primary) {
@@ -497,7 +513,7 @@ button { font: inherit; color: inherit; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(16px + var(--safe-bottom));
+  bottom: calc(14px + var(--safe-bottom));
   transform: translateX(-50%);
   background: var(--panel);
   border: 1px solid var(--cyan);
@@ -555,7 +571,15 @@ button { font: inherit; color: inherit; }
   }
 }
 
+/* Tight viewports (small phones in portrait): trim padding + gap. */
+@media (max-height: 640px) {
+  :root { --gap: 8px; }
+  .board-wrap { padding-top: 4px; }
+  .countdown-text { font-size: 48px; }
+  .score-num     { font-size: 26px; }
+  .btn-sub       { display: none; }     /* drop the formula on truly cramped screens */
+}
+
 @media (display-mode: standalone) {
-  /* When installed: hide install button, allow more chrome breathing room */
   #btn-install { display: none !important; }
 }
