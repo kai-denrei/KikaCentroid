@@ -771,11 +771,15 @@ function flashTbtn(btn, msg, ms = 1500) {
 })();
 
 // ── Hard Mode toggle (toolbar pill, left of LINK) ────────────────────────
+// Pre-unlock: .locked → visibility:hidden, slot reserved so the toolbar
+// doesn't shift the moment unlock happens.
 function syncHardToggle() {
-  dom.hardToggle.hidden = !hardUnlocked;
+  dom.hardToggle.classList.toggle('locked', !hardUnlocked);
   dom.hardToggle.classList.toggle('on', hardMode);
   dom.hardToggle.setAttribute('aria-pressed', hardMode ? 'true' : 'false');
-  dom.hardToggle.title = `Hard Mode: ${hardMode ? 'On' : 'Off'}`;
+  dom.hardToggle.setAttribute('aria-hidden', hardUnlocked ? 'false' : 'true');
+  dom.hardToggle.tabIndex = hardUnlocked ? 0 : -1;
+  dom.hardToggle.title = hardUnlocked ? `Hard Mode: ${hardMode ? 'On' : 'Off'}` : '';
 }
 dom.hardToggle.addEventListener('click', () => {
   if (!hardUnlocked) return;

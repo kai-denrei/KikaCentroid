@@ -137,7 +137,12 @@ button {
   color: var(--green);
 }
 
-/* Compact toolbar Hard Mode toggle — text only, lives left of LINK. */
+/* Compact toolbar Hard Mode toggle — text only, lives left of LINK.
+   .locked: pre-unlock — slot stays reserved (visibility, not display)
+            so the toolbar layout never shifts when the toggle appears.
+   OFF: dark `--line`, with strike through the HARD letters only
+        (brackets stay clean as a frame).
+   ON:  bright `--red`, no decoration. */
 .tbtn-hard {
   font-family: inherit;
   font-size: 10px;
@@ -145,22 +150,29 @@ button {
   padding: 4px 6px;
   border: none;
   background: transparent;
-  color: var(--ink-mute);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
+  color: var(--line);
   cursor: pointer;
   font-weight: 600;
   -webkit-tap-highlight-color: transparent;
 }
+.tbtn-hard .hard-letters {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
 .tbtn-hard:hover, .tbtn-hard:focus-visible {
-  color: var(--ink);
+  color: var(--ink-mute);
   outline: none;
 }
 .tbtn-hard.on {
-  color: var(--ink);
+  color: var(--red);
+}
+.tbtn-hard.on .hard-letters {
   text-decoration: none;
 }
-.tbtn-hard[hidden] { display: none; }
+.tbtn-hard.locked {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* ── Main play area ───────────────────────────────────── */
 .board-wrap {
