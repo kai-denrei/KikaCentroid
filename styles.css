@@ -318,7 +318,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: hidden;
+  /* New copy can overflow on very small phones — opt in to vertical scroll
+     here (body is touch-action: none globally). */
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .idle[hidden] { display: none; }
 .idle-title {
@@ -337,6 +342,40 @@ button {
 }
 .idle-body strong { color: var(--ink); font-weight: 600; }
 .idle-body .ok { color: var(--green-soft); }
+
+.idle-steps {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.idle-scoring {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.idle-footnote {
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  line-height: 1.55;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.idle-footnote em { font-style: italic; color: var(--ink-dim); }
+.idle-footnote strong { color: var(--ink-dim); font-weight: 600; }
+
+/* Highlight classes — scoped to .idle so they beat the default
+   `.idle-body strong { color: var(--ink) }` rule on specificity. */
+.idle .hl-cyan  { color: var(--cyan); }
+.idle .hl-green { color: var(--green); }
+.idle .hl-red   { color: var(--red-soft); }
+.idle .hl-gold  { color: #ffd166; }
 
 .idle-legend {
   display: flex;
@@ -413,6 +452,61 @@ button {
   min-height: 1.5em;
   line-height: 1.5;
   margin: 0;
+}
+
+/* Hard Mode toggle — only rendered once the unlock condition is met. */
+.hard-toggle {
+  flex: 0 0 auto;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.hard-toggle:hover,
+.hard-toggle:focus-visible {
+  border-color: var(--red);
+  color: var(--red-soft);
+  outline: none;
+}
+.hard-toggle.on {
+  border-color: var(--red);
+  color: var(--red-soft);
+  background: rgba(255, 68, 68, .08);
+}
+.hard-toggle[hidden] { display: none; }
+
+/* Recap unlock banner — shown once, the game in which ≥91 was first hit. */
+.unlock-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 68, 68, .10);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.unlock-banner[hidden] { display: none; }
+.unlock-icon { font-size: 22px; line-height: 1; }
+.unlock-text strong {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--red-soft);
+}
+.unlock-sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 2px;
 }
 
 /* ── iOS install hint — fixed overlay; never affects card layout ─ */

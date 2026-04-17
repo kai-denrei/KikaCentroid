@@ -45,6 +45,11 @@ const timeouts = [];
 let cellPx = 20;            // current CSS px per cell, recomputed on resize
 let boardPx = GRID * cellPx;
 
+// Hard Mode persistence — unlock once the user breaks 91 total points.
+let hardUnlocked = localStorage.getItem('kc-hard-unlocked') === '1';
+let hardMode     = hardUnlocked && localStorage.getItem('kc-hard-mode-on') === '1';
+const UNLOCK_AT  = 91;
+
 const schedule = (fn, ms) => {
   const id = setTimeout(fn, ms);
   timeouts.push(id);
@@ -69,7 +74,15 @@ const centroid = (dots) => {
 const chebyshev = (a, b) =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
+// Standard mode progression: EASY → MEDIUM → HARD.
+// Hard Mode is unlocked at total ≥ 91 — every tier gets 5× the dot count
+// of its standard-mode counterpart, and the tier labels escalate too.
 const diffFor = (round) => {
+  if (hardMode) {
+    if (round <= 3) return { name: 'HARD',    min: 15, max: 40, color: '#ff4444' };
+    if (round <= 7) return { name: 'EXTREME', min: 25, max: 50, color: '#ff1a1a' };
+    return                 { name: 'INSANE',  min: 35, max: 60, color: '#ff0088' };
+  }
   if (round <= 3) return { name: 'EASY',   min: 3, max: 8,  color: '#00ff88' };
   if (round <= 7) return { name: 'MEDIUM', min: 5, max: 10, color: '#ffaa00' };
   return                 { name: 'HARD',   min: 7, max: 12, color: '#ff4444' };
@@ -113,6 +126,8 @@ const dom = {
   toast:         $('update-toast'),
   btnRefresh:    $('btn-refresh'),
   btnToastClose: $('btn-toast-close'),
+  hardToggle:    $('hard-toggle'),
+  unlockBanner:  $('unlock-banner'),
 };
 
 const ctx = dom.canvas.getContext('2d');
@@ -395,6 +410,15 @@ function showRecap() {
   const h = S.history;
   const max   = MAX_ROUNDS * ROUND_POTENTIAL;
   const total = S.totalScore;
+
+  // Hard Mode unlock check — one-time event when total first crosses 91.
+  const newlyUnlocked = total >= UNLOCK_AT && !hardUnlocked;
+  if (newlyUnlocked) {
+    hardUnlocked = true;
+    localStorage.setItem('kc-hard-unlocked', '1');
+    syncHardToggle();
+  }
+  dom.unlockBanner.hidden = !newlyUnlocked;
   const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
   const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
   const perf  = h.filter(r => r.perfect).length;
@@ -452,6 +476,7 @@ function showBoard() {
   dom.scoreRow.hidden      = false;
   dom.hudDiff.hidden       = false;
   dom.hudTimerWrap.hidden  = false;
+  dom.hardToggle.hidden    = true;       // hide toggle during play
   sizeBoard();
 }
 function hideBoard() {
@@ -460,11 +485,12 @@ function hideBoard() {
   dom.scoreRow.hidden      = true;
   dom.hudDiff.hidden       = true;
   dom.hudTimerWrap.hidden  = true;
+  syncHardToggle();                       // restore toggle visibility on idle
 }
 
 // Unicode round-progress bar — 20 chars wide, 2 per round.
 // `round` is the round currently being played (1..MAX_ROUNDS) or 0 before start.
-const IDLE_SUBTITLE = '10 rounds · lowest score wins';
+const IDLE_SUBTITLE = '10 rounds · score up to 100';
 function progressBarHTML(round) {
   const segs   = MAX_ROUNDS;
   const filled = Math.max(0, Math.min(segs, round));
@@ -618,6 +644,20 @@ function flashTbtn(btn, msg, ms = 1500) {
   sx.fillStyle = COLORS.optimal;
   sx.fillRect(sOpt.x * SCELL + 2, sOpt.y * SCELL + 2, SCELL - 4, SCELL - 4);
 })();
+
+// ── Hard Mode toggle ─────────────────────────────────────────────────────
+function syncHardToggle() {
+  dom.hardToggle.hidden = !hardUnlocked;
+  dom.hardToggle.textContent = `Hard Mode: ${hardMode ? 'On' : 'Off'}`;
+  dom.hardToggle.classList.toggle('on', hardMode);
+}
+dom.hardToggle.addEventListener('click', () => {
+  if (!hardUnlocked) return;
+  hardMode = !hardMode;
+  localStorage.setItem('kc-hard-mode-on', hardMode ? '1' : '0');
+  syncHardToggle();
+});
+syncHardToggle();
 
 // ── Initial paint ────────────────────────────────────────────────────────
 sizeBoard();

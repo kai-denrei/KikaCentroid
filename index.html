@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v6</span>
+      <span id="app-version" class="version" aria-label="version">v7</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -78,14 +78,19 @@
       </div>
 
       <section id="idle-screen" class="idle">
-        <div class="idle-title">How it works</div>
+        <div class="idle-title">How to Play</div>
         <p class="idle-body">
-          Estimate the <strong>centroid</strong> (center of mass) of the blue squares.<br>
-          Tap a cell to place your guess, then press <strong>VALIDATE</strong>
-          (or tap the same cell again to confirm).<br>
-          Each round starts with <strong class="ok">10 points</strong>.
-          Lose 1 per second after 3s, plus 1 per cell off-target.
-          <strong>Higher is better.</strong>
+          Estimate the <strong class="hl-cyan">centroid<sup>*</sup></strong> of the blue squares.
+        </p>
+        <ol class="idle-steps">
+          <li><strong class="hl-green">TAP</strong> a cell to place your guess</li>
+          <li><strong class="hl-green">VALIDATE</strong> via the button or double-tapping</li>
+        </ol>
+        <p class="idle-body idle-scoring">
+          Each round starts with <strong class="hl-cyan">10 points</strong>.
+          Lose <strong class="hl-red">1 per second</strong> after 3s.
+          Lose <strong class="hl-red">1 per cell</strong> off-target.
+          <strong class="hl-gold">Perfect Score is 100.</strong>
         </p>
         <div class="idle-legend">
           <canvas id="sample-canvas" aria-hidden="true"></canvas>
@@ -95,12 +100,17 @@
             <li><span class="dot dot-red"></span> Your guess</li>
           </ul>
         </div>
+        <p class="idle-footnote">
+          <strong>*A centroid</strong> is the <em>geometric center</em>, or "average position" of all points, within a two-dimensional shape or three-dimensional solid. Often referred to as the <strong class="hl-cyan">center of mass</strong> (for uniform density), it represents the point where lines of symmetry intersect and acts as the <em>center of gravity</em>.
+        </p>
       </section>
 
       <button id="action-btn" type="button" class="action-btn" aria-live="polite">
         <div id="btn-label" class="btn-label">START GAME</div>
         <div class="btn-sub">x̄ = (1/n) Σ xᵢ &nbsp;&nbsp; ȳ = (1/n) Σ yᵢ</div>
       </button>
+
+      <button id="hard-toggle" type="button" class="hard-toggle" hidden>Hard Mode: Off</button>
 
       <p id="hint-text" class="hint">Tap START GAME to begin</p>
 
@@ -110,6 +120,13 @@
   <div id="recap-modal" class="modal" hidden>
     <div class="modal-backdrop" data-close></div>
     <div class="modal-card" role="dialog" aria-labelledby="recap-title" aria-modal="true">
+      <div id="unlock-banner" class="unlock-banner" hidden>
+        <span class="unlock-icon" aria-hidden="true">🔓</span>
+        <div class="unlock-text">
+          <strong>Hard Mode Unlocked</strong>
+          <div class="unlock-sub">Toggle it on from the start screen.</div>
+        </div>
+      </div>
       <header class="modal-header">
         <h2 id="recap-title" class="modal-title">Game Over</h2>
         <p id="recap-msg" class="modal-msg"></p>
