@@ -259,31 +259,74 @@ button {
 }
 .pts-flash[hidden] { display: none; }
 
-/* Potential-points tracker — 10 grey dots, drain right-to-left as
-   time ticks over the penalty threshold and distance is revealed. */
-.potential {
-  position: absolute;
-  top: 8px;
-  left: 8px;
+/* Pre-grid bar: holds the 10 potential-points dots and the halo timer.
+   Sits in normal flow between TOTAL and the canvas. */
+.pregrid {
+  flex: 0 0 auto;
   display: flex;
-  gap: 3px;
-  z-index: 5;
-  pointer-events: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+  height: 22px;
+}
+.pregrid[hidden] { display: none; }
+
+.potential {
+  display: flex;
+  gap: 4px;
 }
 .pdot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--ink-dim);
   transition: opacity .35s ease-out, background .18s;
 }
 .pdot.spent-time {
-  opacity: .12;
+  opacity: .15;
 }
 .pdot.spent-distance {
   background: var(--red-soft);
   opacity: 0;
   transition: opacity .55s .08s ease-out, background .18s;
+}
+
+/* Halo timer — shrinks over the 3-second pre-penalty window.
+   Visual reminder: act on intuition before the ring vanishes. */
+.halo {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  background: transparent;
+  box-shadow: 0 0 10px rgba(0, 255, 136, .45);
+  opacity: 0;
+  transform: scale(0);
+  flex: 0 0 auto;
+}
+.halo.halo-running {
+  animation: halo-shrink 3s linear forwards;
+}
+@keyframes halo-shrink {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    border-color: var(--green);
+    box-shadow: 0 0 10px rgba(0, 255, 136, .45);
+  }
+  60% {
+    transform: scale(0.5);
+    opacity: 1;
+    border-color: var(--amber);
+    box-shadow: 0 0 8px rgba(255, 170, 0, .45);
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+    border-color: var(--red);
+    box-shadow: 0 0 6px rgba(255, 68, 68, .4);
+  }
 }
 
 .countdown {

@@ -94,7 +94,9 @@ const dom = {
   canvas:        $('grid-canvas'),
   sample:        $('sample-canvas'),
   canvasWrap:    $('canvas-wrapper'),
+  pregrid:       $('pregrid'),
   potentialDots: $('potential-dots'),
+  halo:          $('halo'),
   scoreRow:      $('score-row'),
   idleScreen:    $('idle-screen'),
   subtitle:      $('subtitle'),
@@ -301,12 +303,14 @@ function startRound(nr) {
   }, 1000);
 
   renderPotentialDots();                     // reset the 10 dots for this round
+  startHalo();                               // 3s shrinking ring
   updateUI(); draw();
 }
 
 function validate() {
   if (!S.guess || !S.optimal || S.showResult) return;
   stopTimer();
+  hideHalo();                               // round committed — kill the ring
 
   const dist         = chebyshev(S.guess, S.optimal);
   const deductions   = dist + S.penalty;                // total points lost this round
@@ -473,6 +477,7 @@ function showRecap() {
 function showBoard() {
   dom.idleScreen.hidden    = true;
   dom.canvasWrap.hidden    = false;
+  dom.pregrid.hidden       = false;
   dom.scoreRow.hidden      = false;
   dom.hudDiff.hidden       = false;
   dom.hudTimerWrap.hidden  = false;
@@ -482,10 +487,24 @@ function showBoard() {
 function hideBoard() {
   dom.idleScreen.hidden    = false;
   dom.canvasWrap.hidden    = true;
+  dom.pregrid.hidden       = true;
   dom.scoreRow.hidden      = true;
   dom.hudDiff.hidden       = true;
   dom.hudTimerWrap.hidden  = true;
+  hideHalo();
   syncHardToggle();                       // restore toggle visibility on idle
+}
+
+// ── Halo timer ───────────────────────────────────────────────────────────
+// Pure CSS animation: 3s shrink, green → amber → red. Re-triggered by
+// removing then re-adding the running class with a forced reflow between.
+function startHalo() {
+  dom.halo.classList.remove('halo-running');
+  void dom.halo.offsetWidth;
+  dom.halo.classList.add('halo-running');
+}
+function hideHalo() {
+  dom.halo.classList.remove('halo-running');
 }
 
 // Unicode round-progress bar — 20 chars wide, 2 per round.

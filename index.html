@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v7</span>
+      <span id="app-version" class="version" aria-label="version">v8</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -60,6 +60,13 @@
         </div>
       </div>
 
+      <div id="pregrid" class="pregrid" hidden>
+        <div id="potential-dots" class="potential" aria-label="Potential points this round">
+          <span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span>
+        </div>
+        <div id="halo" class="halo" aria-hidden="true"></div>
+      </div>
+
       <div id="canvas-wrapper" class="canvas-wrap" hidden>
         <div class="canvas-frame">
           <canvas
@@ -67,9 +74,6 @@
             aria-label="KikaCentroid game board: tap a cell to place your guess for the cluster centroid"
             role="img"
           ></canvas>
-          <div id="potential-dots" class="potential" aria-label="Potential points this round">
-            <span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span>
-          </div>
           <div id="pts-flash" class="pts-flash" hidden></div>
           <div id="countdown-overlay" class="countdown" hidden>
             <span id="countdown-text" class="countdown-text"></span>
