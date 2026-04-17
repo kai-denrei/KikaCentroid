@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0d1117">
+  <title>Offline — KikaCentroid</title>
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" sizes="180x180">
+  <style>
+    :root {
+      --bg: #05050a;
+      --panel: #0d1117;
+      --line: #21262d;
+      --ink: #c9d1d9;
+      --ink-dim: #8b949e;
+      --ink-mute: #6b7280;
+      --cyan: #00d4ff;
+      --green: #66bb6a;
+      --blue: #4d8fcc;
+      --mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--mono); }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px env(safe-area-inset-right) 24px env(safe-area-inset-left);
+    }
+    main {
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .ink {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 18px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      gap: 4px;
+      padding: 6px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .ink span { background: transparent; border-radius: 1px; }
+    .ink span.b { background: var(--blue); }
+    .ink span.g { background: var(--green); box-shadow: 0 0 8px rgba(102,187,106,.55); }
+
+    h1 {
+      font-size: 16px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .lede {
+      font-size: 13px;
+      color: var(--ink-dim);
+      line-height: 1.6;
+      margin: 0 0 18px;
+    }
+    .meta {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 22px;
+    }
+    .btn {
+      display: inline-block;
+      font: inherit;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 11px 20px;
+      border-radius: 4px;
+      border: 1px solid var(--cyan);
+      background: rgba(0,212,255,.1);
+      color: var(--cyan);
+      cursor: pointer;
+      text-decoration: none;
+      min-height: 44px;
+    }
+    footer {
+      margin-top: 28px;
+      font-size: 11px;
+      color: var(--ink-mute);
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="ink" aria-hidden="true">
+      <span></span><span class="b"></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span class="b"></span><span></span>
+      <span></span><span></span><span class="g"></span><span></span><span></span>
+      <span class="b"></span><span></span><span></span><span></span><span class="b"></span>
+      <span></span><span></span><span></span><span class="b"></span><span></span>
+    </div>
+
+    <h1>Offline</h1>
+    <p class="lede">
+      KikaCentroid couldn't reach the network and the app shell isn't in the cache yet.
+      Connect once and it will be installable for full offline play.
+    </p>
+    <p class="meta">x̄ = (1/n) Σ xᵢ &nbsp;·&nbsp; ȳ = (1/n) Σ yᵢ</p>
+
+    <button class="btn" type="button" onclick="location.reload()">Retry</button>
+
+    <footer>KikaCentroid · estimate the centroid</footer>
+  </main>
+</body>
+</html>

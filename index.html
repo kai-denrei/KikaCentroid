@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="KikaCentroid — estimate the centroid of a dot cluster. 10 rounds, lowest score wins.">
+
+  <title>KikaCentroid</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" sizes="180x180">
+
+  <!-- iOS PWA tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KikaCentroid">
+
+  <link rel="preload" as="style" href="styles.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="toolbar" role="banner">
+    <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
+    <div class="toolbar-spacer"></div>
+    <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
+    <button id="btn-link" type="button" class="tbtn" aria-label="Copy link">Link</button>
+    <span id="hud-round" class="hud" hidden>R<span id="hud-r">0</span>/10</span>
+    <span id="hud-diff" class="hud" hidden></span>
+    <span id="hud-timer-wrap" class="hud" hidden>
+      <span class="hud-icon" aria-hidden="true">⏱</span>
+      <span id="hud-timer" class="hud-time">0:00</span><span id="hud-penalty" class="hud-penalty" hidden></span>
+    </span>
+  </header>
+
+  <main class="board-wrap">
+    <div class="card">
+
+      <div class="title-block">
+        <h1 class="title">Centroid (x̄, ȳ) — GRID FAST</h1>
+        <p class="subtitle">10 rounds · lowest score wins</p>
+      </div>
+
+      <div id="score-row" class="score-row" hidden>
+        <div class="score">
+          <div id="disp-total" class="score-num">0</div>
+          <div class="score-label">Total</div>
+        </div>
+      </div>
+
+      <div id="canvas-wrapper" class="canvas-wrap" hidden>
+        <canvas
+          id="grid-canvas"
+          aria-label="KikaCentroid game board: tap a cell to place your guess for the cluster centroid"
+          role="img"
+        ></canvas>
+        <div id="pts-flash" class="pts-flash" hidden></div>
+        <div id="countdown-overlay" class="countdown" hidden>
+          <span id="countdown-text" class="countdown-text"></span>
+        </div>
+      </div>
+
+      <section id="idle-screen" class="idle">
+        <div class="idle-title">How it works</div>
+        <p class="idle-body">
+          Estimate the <strong>centroid</strong> (center of mass) of the blue squares.<br>
+          Tap a cell to place your guess, then press <strong>VALIDATE</strong>
+          (or tap the same cell again to confirm).<br>
+          Perfect guess = <strong class="ok">0 points</strong>. Lower is better.
+        </p>
+        <div class="idle-legend">
+          <canvas id="sample-canvas" aria-hidden="true"></canvas>
+          <ul class="legend-list">
+            <li><span class="dot dot-blue"></span> Dots</li>
+            <li><span class="dot dot-green"></span> True centroid</li>
+            <li><span class="dot dot-red"></span> Your guess</li>
+          </ul>
+        </div>
+      </section>
+
+      <button id="action-btn" type="button" class="action-btn" aria-live="polite">
+        <div id="btn-label" class="btn-label">START GAME</div>
+        <div class="btn-sub">x̄ = (1/n) Σ xᵢ &nbsp;&nbsp; ȳ = (1/n) Σ yᵢ</div>
+      </button>
+
+      <p id="hint-text" class="hint">Tap START GAME to begin</p>
+
+      <p id="ios-install-hint" class="ios-hint" hidden>
+        To install: tap <span aria-hidden="true">⎋</span> Share, then <strong>Add to Home Screen</strong>.
+        <button id="ios-hint-close" type="button" class="ios-hint-close" aria-label="Dismiss">×</button>
+      </p>
+
+    </div>
+  </main>
+
+  <div id="recap-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-labelledby="recap-title" aria-modal="true">
+      <header class="modal-header">
+        <h2 id="recap-title" class="modal-title">Game Over</h2>
+        <p id="recap-msg" class="modal-msg"></p>
+      </header>
+
+      <div class="recap-total-box">
+        <div id="recap-total" class="recap-total"></div>
+        <div class="score-label">Total Score</div>
+      </div>
+
+      <ul class="recap-stats">
+        <li>Perfect: <strong id="recap-perfect" class="ok"></strong></li>
+        <li>Avg score: <strong id="recap-avg"></strong></li>
+        <li>Avg time: <strong id="recap-time"></strong>s</li>
+      </ul>
+
+      <div id="recap-rounds" class="recap-rounds"></div>
+
+      <div class="hist-label">Score Distribution</div>
+      <div id="recap-hist" class="recap-hist"></div>
+
+      <div class="modal-actions">
+        <button id="btn-play-again" type="button" class="action-btn primary">Play Again</button>
+        <button id="btn-share" type="button" class="action-btn">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="update-toast" class="toast" role="status" aria-live="polite" hidden>
+    <span>New version available.</span>
+    <button id="btn-refresh" type="button" class="toast-btn">Refresh</button>
+    <button id="btn-toast-close" type="button" class="toast-close" aria-label="Dismiss">×</button>
+  </div>
+
+  <noscript>
+    <div class="noscript">
+      KikaCentroid needs JavaScript to run. Please enable it.
+    </div>
+  </noscript>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
