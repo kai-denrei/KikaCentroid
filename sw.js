@@ -5,7 +5,7 @@
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
 // Also bump the user-visible label in index.html (#app-version) to match.
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
 

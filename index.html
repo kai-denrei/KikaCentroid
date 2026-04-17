@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v5</span>
+      <span id="app-version" class="version" aria-label="version">v6</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -61,14 +61,19 @@
       </div>
 
       <div id="canvas-wrapper" class="canvas-wrap" hidden>
-        <canvas
-          id="grid-canvas"
-          aria-label="KikaCentroid game board: tap a cell to place your guess for the cluster centroid"
-          role="img"
-        ></canvas>
-        <div id="pts-flash" class="pts-flash" hidden></div>
-        <div id="countdown-overlay" class="countdown" hidden>
-          <span id="countdown-text" class="countdown-text"></span>
+        <div class="canvas-frame">
+          <canvas
+            id="grid-canvas"
+            aria-label="KikaCentroid game board: tap a cell to place your guess for the cluster centroid"
+            role="img"
+          ></canvas>
+          <div id="potential-dots" class="potential" aria-label="Potential points this round">
+            <span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span>
+          </div>
+          <div id="pts-flash" class="pts-flash" hidden></div>
+          <div id="countdown-overlay" class="countdown" hidden>
+            <span id="countdown-text" class="countdown-text"></span>
+          </div>
         </div>
       </div>
 
@@ -78,7 +83,9 @@
           Estimate the <strong>centroid</strong> (center of mass) of the blue squares.<br>
           Tap a cell to place your guess, then press <strong>VALIDATE</strong>
           (or tap the same cell again to confirm).<br>
-          Perfect guess = <strong class="ok">0 points</strong>. Lower is better.
+          Each round starts with <strong class="ok">10 points</strong>.
+          Lose 1 per second after 3s, plus 1 per cell off-target.
+          <strong>Higher is better.</strong>
         </p>
         <div class="idle-legend">
           <canvas id="sample-canvas" aria-hidden="true"></canvas>

@@ -219,6 +219,15 @@ button {
 }
 .canvas-wrap[hidden] { display: none; }
 
+/* Inner frame sized exactly to the canvas — gives the pdots, pts-flash
+   and countdown overlay a coordinate system that tracks the board, not
+   the surrounding flex padding. */
+.canvas-frame {
+  position: relative;
+  line-height: 0;
+  display: block;
+}
+
 #grid-canvas {
   display: block;
   border: 1px solid var(--line);
@@ -232,7 +241,7 @@ button {
 
 .pts-flash {
   position: absolute;
-  top: 8px;
+  top: 22px;
   left: 50%;
   transform: translateX(-50%);
   font-family: var(--digital);
@@ -244,7 +253,38 @@ button {
   white-space: nowrap;
   z-index: 10;
 }
+.pts-flash.gain {
+  color: var(--green);
+  text-shadow: 0 0 16px var(--green-soft);
+}
 .pts-flash[hidden] { display: none; }
+
+/* Potential-points tracker — 10 grey dots, drain right-to-left as
+   time ticks over the penalty threshold and distance is revealed. */
+.potential {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 3px;
+  z-index: 5;
+  pointer-events: none;
+}
+.pdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  transition: opacity .35s ease-out, background .18s;
+}
+.pdot.spent-time {
+  opacity: .12;
+}
+.pdot.spent-distance {
+  background: var(--red-soft);
+  opacity: 0;
+  transition: opacity .55s .08s ease-out, background .18s;
+}
 
 .countdown {
   position: absolute;
@@ -501,6 +541,7 @@ button {
   border-bottom: 1px solid var(--line);
 }
 .recap-row .perfect { color: var(--green-soft); }
+.recap-row .loss    { color: var(--red-soft); }
 
 .hist-label {
   font-size: 10px;
@@ -528,6 +569,9 @@ button {
   background: var(--cyan);
   border-radius: 2px 2px 0 0;
   min-height: 1px;
+}
+.hist-bar-top {
+  background: var(--green);
 }
 .hist-lbl { font-size: 10px; color: var(--ink-mute); }
 

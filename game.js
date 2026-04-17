@@ -2,12 +2,13 @@
 // Module script: deferred, strict mode.
 
 // ── Constants ────────────────────────────────────────────────────────────
-const GRID       = 17;
-const CELL_MIN   = 16;          // minimum cell size in CSS px (small-phone safe)
-const BOARD_MAX  = 380;         // max board edge in CSS px
-const MAX_ROUNDS = 10;
-const PENALTY_AT = 3;           // seconds before per-second penalty kicks in
-const DPR        = Math.min(window.devicePixelRatio || 1, 2);
+const GRID           = 17;
+const CELL_MIN       = 16;      // minimum cell size in CSS px (small-phone safe)
+const BOARD_MAX      = 380;     // max board edge in CSS px
+const MAX_ROUNDS     = 10;
+const PENALTY_AT     = 3;       // seconds before per-second penalty kicks in
+const ROUND_POTENTIAL = 10;     // points available per round (= number of pdots)
+const DPR            = Math.min(window.devicePixelRatio || 1, 2);
 
 const COLORS = {
   bg:       '#0d1117',
@@ -80,6 +81,7 @@ const dom = {
   canvas:        $('grid-canvas'),
   sample:        $('sample-canvas'),
   canvasWrap:    $('canvas-wrapper'),
+  potentialDots: $('potential-dots'),
   scoreRow:      $('score-row'),
   idleScreen:    $('idle-screen'),
   subtitle:      $('subtitle'),
@@ -283,6 +285,7 @@ function startRound(nr) {
     updateUI();
   }, 1000);
 
+  renderPotentialDots();                     // reset the 10 dots for this round
   updateUI(); draw();
 }
 
@@ -290,18 +293,30 @@ function validate() {
   if (!S.guess || !S.optimal || S.showResult) return;
   stopTimer();
 
-  const dist    = chebyshev(S.guess, S.optimal);
-  const score   = dist + S.penalty;
-  const perfect = dist === 0;
+  const dist         = chebyshev(S.guess, S.optimal);
+  const deductions   = dist + S.penalty;                // total points lost this round
+  const roundPoints  = ROUND_POTENTIAL - deductions;    // can go negative
+  const perfectAim   = dist === 0;                      // landed on the centroid
+  const spotless     = deductions === 0;                // full 10/10, no time penalty either
 
   S.showResult  = true;
   S.phase       = 'downtime';
-  S.totalScore += score;
-  S.history.push({ round: S.round, score, timer: S.timer, perfect });
+  S.totalScore += roundPoints;
+  S.history.push({
+    round: S.round,
+    roundPoints,
+    dist,
+    penalty: S.penalty,
+    timer: S.timer,
+    perfect: perfectAim,
+  });
 
-  dom.ptsFlash.textContent = score === 0 ? '✨ 0 ✨' : `+${score}`;
+  // Flash: "−X" (points lost) or "✨ +10 ✨" for a spotless round.
+  dom.ptsFlash.classList.toggle('gain', spotless);
+  dom.ptsFlash.textContent = spotless ? '✨ +10 ✨' : `−${deductions}`;
   dom.ptsFlash.hidden = false;
 
+  renderPotentialDots();                                // flash the distance dots red
   updateUI(); draw();
 
   schedule(() => {
@@ -313,6 +328,26 @@ function validate() {
       showRecap();
     }
   }, 1000);
+}
+
+// ── Potential-points tracker ─────────────────────────────────────────────
+// 10 dots drain right-to-left: first by time penalty (grey → faded),
+// then at validate by distance (red flash → gone).
+function renderPotentialDots() {
+  const nodes = dom.potentialDots.children;
+  const dist  = S.showResult && S.guess && S.optimal
+    ? chebyshev(S.guess, S.optimal)
+    : 0;
+  const lostTime = Math.min(ROUND_POTENTIAL, S.penalty);
+  const lostDist = Math.min(ROUND_POTENTIAL - lostTime, dist);
+
+  for (let i = 0; i < ROUND_POTENTIAL; i++) {
+    const node = nodes[ROUND_POTENTIAL - 1 - i];         // drain right-to-left
+    node.className =
+      i < lostTime                ? 'pdot spent-time'     :
+      i < lostTime + lostDist     ? 'pdot spent-distance' :
+                                    'pdot';
+  }
 }
 
 function hardReset() {
@@ -337,40 +372,58 @@ function begin() {
 }
 
 // ── Recap ────────────────────────────────────────────────────────────────
+// Higher is better now — max is MAX_ROUNDS * ROUND_POTENTIAL (100).
 const MSGS = {
-  hi:  ["Nice try, but you've got more in you!", "Not bad — now show your best!", "Solid effort, keep pushing!"],
-  mid: ['Amazing! Your spatial reasoning is top-notch!', 'Outstanding performance!', 'Fantastic — you aced it!'],
-  lo9: ['Single digit! Impressive!', 'So close to perfection!', 'Excellent intuition.'],
-  lo7: ['Unreal! You beat the creator!', 'Legendary performance!', 'Phenomenal accuracy!'],
+  legend: ['Unreal — you beat the creator!', 'Legendary performance!', 'Phenomenal accuracy.'],
+  great:  ['Outstanding.', 'Fantastic — spatial reasoning top-notch.', 'Amazing run!'],
+  solid:  ['Solid run.', 'Good work — respectable.', 'Nicely done.'],
+  mid:    ['Decent — room to grow.', 'Keep sharpening.', 'Not bad; push for more.'],
+  low:    ["Nice try — you've got more in you.", 'Focus on the easy rounds.', 'Steady effort; keep pushing.'],
 };
 const recapMsg = (score) => {
-  const pool = score > 25 ? MSGS.hi : score >= 10 ? MSGS.mid : score >= 8 ? MSGS.lo9 : MSGS.lo7;
+  const pool =
+    score >= 90 ? MSGS.legend :
+    score >= 70 ? MSGS.great  :
+    score >= 50 ? MSGS.solid  :
+    score >= 30 ? MSGS.mid    :
+                  MSGS.low;
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
 function showRecap() {
   S.phase = 'recap';
   const h = S.history;
+  const max   = MAX_ROUNDS * ROUND_POTENTIAL;
   const total = S.totalScore;
-  const avg   = h.length ? (h.reduce((s, r) => s + r.score, 0) / h.length).toFixed(1) : '0.0';
+  const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
   const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
   const perf  = h.filter(r => r.perfect).length;
 
   dom.recapMsg.textContent     = recapMsg(total);
-  dom.recapTotal.textContent   = `${total} points`;
+  dom.recapTotal.textContent   = `${total} / ${max} points`;
   dom.recapPerfect.textContent = String(perf);
   dom.recapAvg.textContent     = avg;
   dom.recapTime.textContent    = avgT;
 
-  dom.recapRounds.innerHTML = h.map(r => `
-    <div class="recap-row">
+  dom.recapRounds.innerHTML = h.map(r => {
+    const sign = r.roundPoints >= 0 ? '+' : '−';
+    const val  = Math.abs(r.roundPoints);
+    const cls  = r.roundPoints === ROUND_POTENTIAL ? 'perfect'
+               : r.roundPoints < 0                 ? 'loss'
+               :                                     '';
+    return `<div class="recap-row">
       <span>Round ${r.round}</span>
-      <span class="${r.perfect ? 'perfect' : ''}">${r.score} pts${r.perfect ? ' ✨' : ''}</span>
-    </div>
-  `).join('');
+      <span class="${cls}">${sign}${val} pts${r.perfect ? ' ✨' : ''}</span>
+    </div>`;
+  }).join('');
 
-  const buckets   = Array.from({ length: 10 }, (_, i) =>
-    h.filter(r => i < 9 ? r.score === i : r.score >= 9).length);
+  // Histogram: 11 buckets (0..10 round points). Negative rounds count into 0.
+  const buckets = Array.from({ length: ROUND_POTENTIAL + 1 }, (_, i) =>
+    h.filter(r => {
+      const p = Math.max(0, r.roundPoints);
+      return p === i;
+    }).length,
+  );
   const maxBucket = Math.max(...buckets, 1);
   dom.recapHist.innerHTML = '';
   buckets.forEach((count, i) => {
@@ -378,10 +431,11 @@ function showRecap() {
     col.className = 'hist-col';
     const bar = document.createElement('div');
     bar.className = 'hist-bar';
+    if (i === ROUND_POTENTIAL) bar.classList.add('hist-bar-top');
     bar.style.height = `${Math.round(count / maxBucket * 50)}px`;
     const lbl = document.createElement('span');
     lbl.className = 'hist-lbl';
-    lbl.textContent = i === 9 ? '9+' : String(i);
+    lbl.textContent = String(i);
     col.appendChild(bar);
     col.appendChild(lbl);
     dom.recapHist.appendChild(col);
@@ -444,10 +498,11 @@ function updateUI() {
 
     if (S.penalty > 0) {
       dom.hudPenalty.hidden = false;
-      dom.hudPenalty.textContent = ` +${S.penalty}`;
+      dom.hudPenalty.textContent = ` −${S.penalty}`;
     } else {
       dom.hudPenalty.hidden = true;
     }
+    renderPotentialDots();
   }
 
   dom.total.textContent = String(S.totalScore);
