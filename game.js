@@ -74,19 +74,141 @@ const centroid = (dots) => {
 const chebyshev = (a, b) =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
-// Standard mode progression: EASY → MEDIUM → HARD.
-// Hard Mode is unlocked at total ≥ 91 — every tier gets 5× the dot count
-// of its standard-mode counterpart, and the tier labels escalate too.
+// Standard mode: EASY → MEDIUM → HARD, uniform-random dot placement.
+// Hard Mode (unlocked at total ≥ 91): only modestly more dots than standard,
+// but the dots come from skewed distributions (cluster+outlier, two
+// asymmetric clusters, corner-heavy). Skew is the difficulty, not count.
 const diffFor = (round) => {
   if (hardMode) {
-    if (round <= 3) return { name: 'HARD',    min: 15, max: 40, color: '#ff4444' };
-    if (round <= 7) return { name: 'EXTREME', min: 25, max: 50, color: '#ff1a1a' };
-    return                 { name: 'INSANE',  min: 35, max: 60, color: '#ff0088' };
+    if (round <= 3) return { name: 'HARD',    min: 5,  max: 9,  color: '#ff4444' };
+    if (round <= 7) return { name: 'EXTREME', min: 7,  max: 12, color: '#ff1a1a' };
+    return                 { name: 'INSANE',  min: 10, max: 14, color: '#ff0088' };
   }
   if (round <= 3) return { name: 'EASY',   min: 3, max: 8,  color: '#00ff88' };
   if (round <= 7) return { name: 'MEDIUM', min: 5, max: 10, color: '#ffaa00' };
   return                 { name: 'HARD',   min: 7, max: 12, color: '#ff4444' };
 };
+
+// ── Distribution helpers ─────────────────────────────────────────────────
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function gaussian(stddev = 1) {
+  // Box-Muller — one sample from N(0, stddev²)
+  const u1 = Math.max(Math.random(), 1e-9);
+  const u2 = Math.random();
+  return stddev * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+function generateUniformDots(n) {
+  const used = new Set();
+  const dots = [];
+  while (dots.length < n) {
+    const x = Math.floor(Math.random() * GRID);
+    const y = Math.floor(Math.random() * GRID);
+    const k = `${x},${y}`;
+    if (used.has(k)) continue;
+    used.add(k);
+    dots.push({ x, y });
+  }
+  return dots;
+}
+
+// Try to add a unique gaussian-sampled dot near (cx, cy). Bounded retries
+// so a tightly packed cluster can't deadlock the loop.
+function addGaussianDot(dots, used, cx, cy, sigma, max = 80) {
+  for (let i = 0; i < max; i++) {
+    const x = clamp(Math.round(cx + gaussian(sigma)), 0, GRID - 1);
+    const y = clamp(Math.round(cy + gaussian(sigma)), 0, GRID - 1);
+    const k = `${x},${y}`;
+    if (used.has(k)) continue;
+    used.add(k);
+    dots.push({ x, y });
+    return true;
+  }
+  return false;
+}
+
+function fillRandom(dots, used, target, predicate, max = 400) {
+  let attempts = 0;
+  while (dots.length < target && attempts++ < max) {
+    const x = Math.floor(Math.random() * GRID);
+    const y = Math.floor(Math.random() * GRID);
+    if (predicate && !predicate(x, y)) continue;
+    const k = `${x},${y}`;
+    if (used.has(k)) continue;
+    used.add(k);
+    dots.push({ x, y });
+  }
+}
+
+// Pattern A — tight cluster + far outliers. Centroid drifts toward the
+// outliers but the eye sees the cluster as the visual mass.
+function patternClusterOutlier(n) {
+  const dots = [], used = new Set();
+  const cx = 3 + Math.floor(Math.random() * (GRID - 6));
+  const cy = 3 + Math.floor(Math.random() * (GRID - 6));
+  const sigma = 1.2 + Math.random() * 0.6;
+  const numCluster = Math.max(2, Math.floor(n * (0.7 + Math.random() * 0.15)));
+  for (let i = 0; i < numCluster && dots.length < n; i++) {
+    addGaussianDot(dots, used, cx, cy, sigma);
+  }
+  fillRandom(dots, used, n, (x, y) => Math.hypot(x - cx, y - cy) >= 5);
+  // If outlier-distance constraint shut us out, fill the rest anywhere.
+  fillRandom(dots, used, n);
+  return dots;
+}
+
+// Pattern B — two clusters of unequal size. The DOMINANT cluster is pinned
+// to an edge quadrant; the smaller satellite floats elsewhere. With a 70–90%
+// weight skew, the centroid lands close to the dominant cluster (off-centre)
+// instead of cancelling at the grid middle.
+function patternBiCluster(n) {
+  const dots = [], used = new Set();
+  const quadrant = Math.floor(Math.random() * 4);
+  const bigCx = (quadrant & 1) ? GRID - 3 - Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+  const bigCy = (quadrant & 2) ? GRID - 3 - Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+  // Satellite: anywhere not adjacent to the dominant cluster.
+  let smallCx, smallCy, attempts = 0;
+  do {
+    smallCx = 1 + Math.floor(Math.random() * (GRID - 2));
+    smallCy = 1 + Math.floor(Math.random() * (GRID - 2));
+    attempts++;
+  } while (Math.hypot(smallCx - bigCx, smallCy - bigCy) < 6 && attempts < 30);
+
+  const ratio = 0.70 + Math.random() * 0.20;       // 70–90% in dominant
+  const nBig  = Math.max(2, Math.floor(n * ratio));
+  const sigma = 1.0 + Math.random() * 0.5;
+  for (let i = 0; i < nBig && dots.length < n; i++) {
+    addGaussianDot(dots, used, bigCx, bigCy, sigma);
+  }
+  while (dots.length < n) {
+    if (!addGaussianDot(dots, used, smallCx, smallCy, sigma)) break;
+  }
+  fillRandom(dots, used, n);
+  return dots;
+}
+
+// Pattern C — most dots crammed into one corner with a few stragglers.
+// The visual bias screams "corner!" but stragglers shift the centroid.
+function patternCornerHeavy(n) {
+  const dots = [], used = new Set();
+  const corner = Math.floor(Math.random() * 4);
+  const cx = (corner & 1) ? GRID - 3 - Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+  const cy = (corner & 2) ? GRID - 3 - Math.floor(Math.random() * 3) : 2 + Math.floor(Math.random() * 3);
+  const sigma = 1.4 + Math.random() * 0.4;
+  const numCorner = Math.max(2, Math.floor(n * (0.65 + Math.random() * 0.15)));
+  for (let i = 0; i < numCorner && dots.length < n; i++) {
+    addGaussianDot(dots, used, cx, cy, sigma);
+  }
+  fillRandom(dots, used, n);
+  return dots;
+}
+
+function generateSkewedDots(n) {
+  const r = Math.random();
+  if (r < 0.40) return patternClusterOutlier(n);
+  if (r < 0.75) return patternBiCluster(n);
+  return                patternCornerHeavy(n);
+}
 
 // ── DOM refs ─────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -271,17 +393,8 @@ dom.canvas.addEventListener('pointerdown', (e) => {
 function startRound(nr) {
   const diff = diffFor(nr);
   const n    = diff.min + Math.floor(Math.random() * (diff.max - diff.min + 1));
-  const used = new Set();
-  const dots = [];
-  while (dots.length < n) {
-    const x = Math.floor(Math.random() * GRID);
-    const y = Math.floor(Math.random() * GRID);
-    const k = `${x},${y}`;
-    if (used.has(k)) continue;
-    used.add(k);
-    dots.push({ x, y });
-  }
-  const c = centroid(dots);
+  const dots = hardMode ? generateSkewedDots(n) : generateUniformDots(n);
+  const c    = centroid(dots);
 
   S.phase      = 'playing';
   S.round      = nr;
