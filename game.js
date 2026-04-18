@@ -929,8 +929,14 @@ if ('serviceWorker' in navigator) {
 
       // After SKIP_WAITING handler fires inside the SW, the new SW takes
       // control — reload once so the page matches the new asset graph.
+      // Capture whether there was a controller at script-run time: on a
+      // first-ever visit the SW activates + clients.claim() and fires
+      // controllerchange too, which would reload the page mid-tap and
+      // leave the user wondering why START GAME "didn't work."
+      const hadController = !!navigator.serviceWorker.controller;
       let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) return;          // first install — ignore
         if (reloaded) return;
         reloaded = true;
         location.reload();
