@@ -538,12 +538,12 @@ button {
 .unlock-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: rgba(255, 68, 68, .10);
   border: 1px solid var(--red);
   border-radius: 6px;
-  padding: 10px 12px;
-  margin-bottom: 14px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
 }
 .unlock-banner[hidden] { display: none; }
 .unlock-icon { font-size: 22px; line-height: 1; }
@@ -629,113 +629,108 @@ button {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-family: var(--mono);
 }
-.modal-header { text-align: center; margin-bottom: 10px; }
+.modal-header { text-align: center; margin-bottom: 8px; }
 .modal-title {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: 0.08em;
   margin: 0;
 }
 .modal-msg {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-dim);
-  margin: 6px 0 0;
-  line-height: 1.55;
+  margin: 4px 0 0;
+  line-height: 1.45;
 }
 
 .recap-total-box {
   text-align: center;
-  padding: 8px;
+  padding: 6px 8px;
   background: rgba(255, 255, 255, .03);
   border-radius: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .recap-total {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--cyan);
   line-height: 1.1;
 }
+.recap-total-box .score-label { font-size: 9px; margin-top: 2px; }
 .ok { color: var(--green-soft); }
 
 .recap-stats {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   padding: 0;
   list-style: none;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ink-dim);
 }
 .recap-stats strong { color: var(--ink); font-weight: 600; }
 .recap-stats .ok { color: var(--green-soft); }
 
+/* Round list: two columns, column-major (R1..R5 left, R6..R10 right). */
 .recap-rounds {
-  font-size: 11px;
+  display: grid;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  column-gap: 14px;
+  font-size: 10px;
   color: var(--ink-dim);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  line-height: 1.3;
 }
 .recap-row {
   display: flex;
   justify-content: space-between;
-  padding: 2px 0;
+  padding: 1px 0;
   border-bottom: 1px solid var(--line);
 }
 .recap-row .perfect { color: var(--green-soft); }
 .recap-row .loss    { color: var(--red-soft); }
 
 .hist-label {
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.15em;
   color: var(--ink-mute);
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .recap-hist {
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 30px;
-  margin-bottom: 12px;
+  height: 24px;
+  margin-bottom: 8px;
 }
 
-/* Recent-runs sparkline — minimalist line + dots over last 10 totals.
-   SVG stretches to container width; CSS height fixes the visual size. */
+/* Recent-runs text list — color-coded scores, separated by middle dots.
+   Tier palette: >90 cyan, 80–90 green, <80 orange. Current run is bold +
+   underlined so the just-finished score reads immediately. */
 .recap-history {
-  display: block;
-  width: 100%;
-  height: 32px;
-  margin-bottom: 14px;
-}
-.recap-history .baseline {
-  stroke: var(--line);
-  stroke-width: 0.4;
-}
-.recap-history .threshold {
-  stroke: var(--line);
-  stroke-width: 0.3;
-  stroke-dasharray: 1 1.5;
-  opacity: 0.7;
-}
-.recap-history .trend {
-  stroke: var(--cyan);
-  stroke-width: 0.9;
-  fill: none;
-  opacity: 0.75;
-}
-.recap-history .pt          { fill: var(--cyan); }
-.recap-history .pt.hard     { fill: var(--red); }
-.recap-history .pt.current  { stroke: var(--ink); stroke-width: 0.6; }
-.recap-history .empty {
-  fill: var(--ink-mute);
-  font-size: 6px;
+  margin: 0 0 10px;
   font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  text-align: center;
+  line-height: 1.4;
+  word-spacing: 0.4em;
 }
+.recap-history .s-cyan    { color: var(--cyan); }
+.recap-history .s-green   { color: var(--green); }
+.recap-history .s-orange  { color: var(--orange); }
+.recap-history .s-current { font-weight: 700; text-decoration: underline; }
+.recap-history .s-hard::after { content: '*'; color: var(--red); }
+.recap-history .empty { color: var(--ink-mute); font-style: italic; }
 .hist-col {
   flex: 1;
   display: flex;
@@ -757,7 +752,8 @@ button {
 .modal-actions { display: flex; gap: 8px; }
 .modal-actions .action-btn {
   flex: 1;
-  padding: 10px;
+  padding: 9px;
+  min-height: 38px;
 }
 .modal-actions .action-btn:not(.primary) {
   border-color: var(--line);

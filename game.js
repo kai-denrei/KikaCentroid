@@ -536,39 +536,24 @@ function pushRunHistory(totalScore, hard) {
 }
 
 function renderRunHistory(history) {
-  const svg = dom.recapHistory;
+  const el = dom.recapHistory;
   if (!history || !history.length) {
-    svg.innerHTML = '<text class="empty" x="50" y="22" text-anchor="middle">No runs yet</text>';
+    el.innerHTML = '<span class="empty">No runs yet</span>';
     return;
   }
-  const W = 100, H = 36, PAD_X = 2, PAD_Y = 3;
-  const innerW = W - PAD_X * 2;
-  const innerH = H - PAD_Y * 2;
-  const n = history.length;
-
-  const xFor = (i) => n === 1 ? W / 2 : PAD_X + (i / (n - 1)) * innerW;
-  // Map score 0..100 → bottom..top (clamped — negatives sit on the floor).
-  const yFor = (s) => H - PAD_Y - Math.max(0, Math.min(100, s)) / 100 * innerH;
-
-  const baseline = `<line class="baseline" x1="0" y1="${H - PAD_Y}" x2="${W}" y2="${H - PAD_Y}" />`;
-  // 91 threshold (Hard Mode unlock) as a faint dashed reference.
-  const threshold = `<line class="threshold" x1="0" y1="${yFor(91).toFixed(2)}" x2="${W}" y2="${yFor(91).toFixed(2)}" />`;
-
-  const points = history
-    .map((r, i) => `${xFor(i).toFixed(2)},${yFor(r.total).toFixed(2)}`)
-    .join(' ');
-  const line = `<polyline class="trend" points="${points}" />`;
-
-  const dots = history.map((r, i) => {
-    const cx = xFor(i).toFixed(2);
-    const cy = yFor(r.total).toFixed(2);
-    const isLast = i === n - 1;
-    const cls = `pt${r.hard ? ' hard' : ''}${isLast ? ' current' : ''}`;
-    const r0 = isLast ? 1.7 : 1.2;
-    return `<circle class="${cls}" cx="${cx}" cy="${cy}" r="${r0}" />`;
-  }).join('');
-
-  svg.innerHTML = baseline + threshold + line + dots;
+  const tierClass = (s) =>
+    s > 90  ? 's-cyan'   :
+    s >= 80 ? 's-green'  :
+              's-orange';
+  const last = history.length - 1;
+  el.innerHTML = history.map((r, i) => {
+    const cls = [
+      tierClass(r.total),
+      r.hard    ? 's-hard'    : '',
+      i === last ? 's-current' : '',
+    ].filter(Boolean).join(' ');
+    return `<span class="${cls}">${r.total}</span>`;
+  }).join(' · ');
 }
 
 function showRecap() {
@@ -752,15 +737,10 @@ dom.recapModal.addEventListener('click', (e) => {
 });
 
 dom.btnLink.addEventListener('click', async () => {
-  const url = location.href;
   try {
-    if (navigator.share && isCoarse) {
-      await navigator.share({ title: 'KikaCentroid', url });
-    } else {
-      await navigator.clipboard.writeText(url);
-    }
+    await navigator.clipboard.writeText(location.href);
     flashTbtn(dom.btnLink, 'Copied!');
-  } catch (_) { /* user cancelled */ }
+  } catch (_) { /* clipboard blocked */ }
 });
 
 dom.btnShare.addEventListener('click', async () => {

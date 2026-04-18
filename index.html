@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v13</span>
+      <span id="app-version" class="version" aria-label="version">v15</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -152,14 +152,7 @@
       <div id="recap-hist" class="recap-hist"></div>
 
       <div class="hist-label">Last 10 Runs</div>
-      <svg
-        id="recap-history"
-        class="recap-history"
-        viewBox="0 0 100 36"
-        preserveAspectRatio="none"
-        aria-label="Score sparkline of recent runs"
-        role="img"
-      ></svg>
+      <p id="recap-history" class="recap-history" aria-label="Recent run scores"></p>
 
       <div class="modal-actions">
         <button id="btn-play-again" type="button" class="action-btn primary">Play Again</button>
