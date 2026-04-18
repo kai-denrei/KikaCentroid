@@ -248,6 +248,7 @@ const dom = {
   btnInstall:    $('btn-install'),
   iosHint:       $('ios-install-hint'),
   iosHintClose:  $('ios-hint-close'),
+  resetOverlay:  $('reset-overlay'),
   toast:         $('update-toast'),
   btnRefresh:    $('btn-refresh'),
   btnToastClose: $('btn-toast-close'),
@@ -662,12 +663,17 @@ function armReset() {
   if (resetArmTimer) clearTimeout(resetArmTimer);
   resetArmTimer = setTimeout(disarmReset, ARM_WINDOW_MS);
 }
+const RESET_OVERLAY_MS = 1200;
 function abandonRun() {
   disarmReset();
-  pushRunHistory(0, hardMode);
-  hardReset();
-  hideBoard();
-  updateUI();
+  dom.resetOverlay.hidden = false;
+  setTimeout(() => {
+    dom.resetOverlay.hidden = true;
+    pushRunHistory(0, hardMode);
+    hardReset();
+    hideBoard();
+    updateUI();
+  }, RESET_OVERLAY_MS);
 }
 
 // ── Halo timer ───────────────────────────────────────────────────────────
