@@ -240,6 +240,7 @@ const dom = {
   recapTime:     $('recap-time'),
   recapRounds:   $('recap-rounds'),
   recapHist:     $('recap-hist'),
+  recapHistory:  $('recap-history'),
   btnPlayAgain:  $('btn-play-again'),
   btnShare:      $('btn-share'),
   btnLink:       $('btn-link'),
@@ -521,6 +522,55 @@ const recapMsg = (score) => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
+// ── Run history (sparkline) ──────────────────────────────────────────────
+const HISTORY_CAP = 10;
+const HISTORY_KEY = 'kc-history';
+
+function pushRunHistory(totalScore, hard) {
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (_) {}
+  h.push({ total: totalScore, hard: !!hard, ts: Date.now() });
+  if (h.length > HISTORY_CAP) h = h.slice(-HISTORY_CAP);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (_) {}
+  return h;
+}
+
+function renderRunHistory(history) {
+  const svg = dom.recapHistory;
+  if (!history || !history.length) {
+    svg.innerHTML = '<text class="empty" x="50" y="22" text-anchor="middle">No runs yet</text>';
+    return;
+  }
+  const W = 100, H = 36, PAD_X = 2, PAD_Y = 3;
+  const innerW = W - PAD_X * 2;
+  const innerH = H - PAD_Y * 2;
+  const n = history.length;
+
+  const xFor = (i) => n === 1 ? W / 2 : PAD_X + (i / (n - 1)) * innerW;
+  // Map score 0..100 → bottom..top (clamped — negatives sit on the floor).
+  const yFor = (s) => H - PAD_Y - Math.max(0, Math.min(100, s)) / 100 * innerH;
+
+  const baseline = `<line class="baseline" x1="0" y1="${H - PAD_Y}" x2="${W}" y2="${H - PAD_Y}" />`;
+  // 91 threshold (Hard Mode unlock) as a faint dashed reference.
+  const threshold = `<line class="threshold" x1="0" y1="${yFor(91).toFixed(2)}" x2="${W}" y2="${yFor(91).toFixed(2)}" />`;
+
+  const points = history
+    .map((r, i) => `${xFor(i).toFixed(2)},${yFor(r.total).toFixed(2)}`)
+    .join(' ');
+  const line = `<polyline class="trend" points="${points}" />`;
+
+  const dots = history.map((r, i) => {
+    const cx = xFor(i).toFixed(2);
+    const cy = yFor(r.total).toFixed(2);
+    const isLast = i === n - 1;
+    const cls = `pt${r.hard ? ' hard' : ''}${isLast ? ' current' : ''}`;
+    const r0 = isLast ? 1.7 : 1.2;
+    return `<circle class="${cls}" cx="${cx}" cy="${cy}" r="${r0}" />`;
+  }).join('');
+
+  svg.innerHTML = baseline + threshold + line + dots;
+}
+
 function showRecap() {
   S.phase = 'recap';
   const h = S.history;
@@ -535,6 +585,10 @@ function showRecap() {
     syncHardToggle();
   }
   dom.unlockBanner.hidden = !newlyUnlocked;
+
+  // Append this run to recent-history and render the sparkline.
+  const recent = pushRunHistory(total, hardMode);
+  renderRunHistory(recent);
   const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
   const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
   const perf  = h.filter(r => r.perfect).length;
