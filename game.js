@@ -219,6 +219,7 @@ const dom = {
   pregrid:       $('pregrid'),
   potentialDots: $('potential-dots'),
   halo:          $('halo'),
+  btnReset:      $('btn-reset'),
   scoreRow:      $('score-row'),
   idleScreen:    $('idle-screen'),
   subtitle:      $('subtitle'),
@@ -643,7 +644,30 @@ function hideBoard() {
   dom.hudDiff.hidden       = true;
   dom.hudTimerWrap.hidden  = true;
   hideHalo();
+  disarmReset();
   syncHardToggle();
+}
+
+// ── RESET button (two-stage) ─────────────────────────────────────────────
+// First click: orange → red (armed). Second click within ARM_WINDOW_MS:
+// abandon the run, push 0 to history, return to idle. Otherwise reverts.
+const ARM_WINDOW_MS = 2000;
+let resetArmTimer = null;
+function disarmReset() {
+  if (resetArmTimer) { clearTimeout(resetArmTimer); resetArmTimer = null; }
+  dom.btnReset.classList.remove('armed');
+}
+function armReset() {
+  dom.btnReset.classList.add('armed');
+  if (resetArmTimer) clearTimeout(resetArmTimer);
+  resetArmTimer = setTimeout(disarmReset, ARM_WINDOW_MS);
+}
+function abandonRun() {
+  disarmReset();
+  pushRunHistory(0, hardMode);
+  hardReset();
+  hideBoard();
+  updateUI();
 }
 
 // ── Halo timer ───────────────────────────────────────────────────────────
@@ -721,6 +745,11 @@ function updateUI() {
 dom.actionBtn.addEventListener('click', () => {
   if (S.phase === 'idle')                                     begin();
   else if (S.phase === 'playing' && S.guess && !S.showResult) validate();
+});
+
+dom.btnReset.addEventListener('click', () => {
+  if (dom.btnReset.classList.contains('armed')) abandonRun();
+  else                                          armReset();
 });
 
 dom.btnPlayAgain.addEventListener('click', () => {
