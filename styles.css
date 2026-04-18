@@ -796,13 +796,13 @@ button {
   color: var(--ink-mute);
   text-align: center;
   line-height: 1.4;
-  word-spacing: 0.4em;
 }
 .recap-history .s-cyan    { color: var(--cyan); }
 .recap-history .s-green   { color: var(--green); }
 .recap-history .s-orange  { color: var(--orange); }
 .recap-history .s-current { font-weight: 700; text-decoration: underline; }
 .recap-history .s-hard::after { content: '*'; color: var(--red); }
+.recap-history .s-arrow { color: var(--ink-mute); opacity: .55; margin: 0 1px; }
 .recap-history .empty { color: var(--ink-mute); font-style: italic; }
 .hist-col {
   flex: 1;

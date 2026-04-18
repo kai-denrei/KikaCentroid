@@ -548,6 +548,8 @@ function renderRunHistory(history) {
     s >= 80 ? 's-green'  :
               's-orange';
   const last = history.length - 1;
+  // Oldest on the left → newest on the right, with › between to lead the
+  // eye toward the latest run (also bolded + underlined via .s-current).
   el.innerHTML = history.map((r, i) => {
     const cls = [
       tierClass(r.total),
@@ -555,7 +557,7 @@ function renderRunHistory(history) {
       i === last ? 's-current' : '',
     ].filter(Boolean).join(' ');
     return `<span class="${cls}">${r.total}</span>`;
-  }).join(' · ');
+  }).join(' <span class="s-arrow">›</span> ');
 }
 
 function showRecap() {
