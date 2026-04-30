@@ -1414,6 +1414,12 @@ button {
   background: rgba(255,255,255,0.04);
   box-shadow: 0 0 6px rgba(255,255,255,0.4);
 }
+/* Skill achievements — distinct palette so they read as a separate
+   category from the streak ladder. */
+.ach-pill.is-unlocked.ach-key-long-shot    { color: #ffaa00; border-color: #ffaa00; }
+.ach-pill.is-unlocked.ach-key-marksman     { color: #66bb6a; border-color: #66bb6a; }
+.ach-pill.is-unlocked.ach-key-sharpshooter { color: #00d4ff; border-color: #00d4ff; }
+.ach-pill.is-unlocked.ach-key-speed-demon  { color: #ff6b6b; border-color: #ff6b6b; }
 
 /* Each run is a button that pops the run-detail modal. Reset chrome so it
    reads as plain text in the sparkline; just hover-feedback to hint click. */
@@ -1584,6 +1590,36 @@ button {
 .ach-row.is-unlocked.ach-tier-8  { color: #ff6b6b; }
 .ach-row.is-unlocked.ach-tier-9  { color: #ff4444; }
 .ach-row.is-unlocked.ach-tier-10 { color: #ffffff; }
+.ach-row.is-unlocked.ach-key-long-shot    { color: #ffaa00; }
+.ach-row.is-unlocked.ach-key-marksman     { color: #66bb6a; }
+.ach-row.is-unlocked.ach-key-sharpshooter { color: #00d4ff; }
+.ach-row.is-unlocked.ach-key-speed-demon  { color: #ff6b6b; }
+
+/* Section headers inside the achievements modal — separate Streak from
+   Skill so the user understands they're different categories. */
+.ach-section-header {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding: 10px 0 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+.ach-modal-list > .ach-section-header:first-child { padding-top: 0; }
+.ach-section-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--cyan);
+  text-transform: none;
+  font-weight: 600;
+}
 
 .ach-modal-actions {
   display: flex;

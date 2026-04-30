@@ -663,6 +663,13 @@ function validate() {
   else          S.perfectStreak = 0;
   if (S.perfectStreak >= 2) showStreakCallout(S.perfectStreak);
 
+  // Long Shot — spotless guess on a centroid sitting 3+ cells from any dot.
+  // Captures any round where the geometry forced a commitment to empty
+  // space, regardless of which dot pattern generator produced it.
+  if (spotless && nearestDotChebyshev(S.optimal, S.dots) >= 3) {
+    tryUnlock('long_shot');
+  }
+
   renderPotentialDots();                                // flash the distance dots red
   updateUI(); draw();
 
@@ -717,7 +724,7 @@ function showStreakCallout(tier) {
 
   // Persist this tier as an achievement (idempotent — repeat tiers don't
   // re-fire). If it was new, flag it for the recap to highlight.
-  if (unlockAchievement(tier)) S.newAchievements.push(tier);
+  tryUnlock(`tier_${tier}`);
 }
 
 // ── Potential-points tracker ─────────────────────────────────────────────
@@ -855,40 +862,80 @@ function renderAchievements() {
   const map = readAchievements();
   const newSet = new Set(S.newAchievements);
   const html = [];
-  // Iterate tiers 2..MAX_ROUNDS — HYPE_TIERS uses index = tier number.
-  for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
-    const cfg = HYPE_TIERS[tier];
-    if (!cfg) continue;
-    const isUnlocked = !!(map[`tier_${tier}`] && map[`tier_${tier}`].unlocked);
-    const isNew = newSet.has(tier);
+  const pill = (key, label, colorCls) => {
+    const isUnlocked = !!(map[key] && map[key].unlocked);
+    const isNew = newSet.has(key);
     const cls = [
-      'ach-pill', `ach-tier-${tier}`,
+      'ach-pill', colorCls,
       isUnlocked ? 'is-unlocked' : 'is-locked',
       isNew      ? 'is-new'      : '',
     ].filter(Boolean).join(' ');
     const newBadge = isNew ? ' <em>NEW!</em>' : '';
-    html.push(`<span class="${cls}">${cfg.label}${newBadge}</span>`);
+    return `<span class="${cls}">${label}${newBadge}</span>`;
+  };
+  // Streak: tiers 2..MAX_ROUNDS, color via .ach-tier-N
+  for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
+    const cfg = HYPE_TIERS[tier];
+    if (!cfg) continue;
+    html.push(pill(`tier_${tier}`, cfg.label, `ach-tier-${tier}`));
+  }
+  // Skill: long_shot / marksman / sharpshooter / speed_demon
+  for (const ach of SKILL_ACHIEVEMENTS) {
+    html.push(pill(ach.key, ach.label, `ach-key-${ach.key.replace(/_/g, '-')}`));
   }
   dom.recapAch.innerHTML = html.join('');
 }
 
 // ── Achievements ─────────────────────────────────────────────────────────
-// One per X-in-a-row hype tier (2-9) plus PERFECT (10). Unlocked the first
-// time the user hits that streak in a single run; same trigger as the
-// callout fires on. Storage is keyed by tier *number* — names live in
-// HYPE_TIERS so renaming a tier doesn't break stored unlocks.
+// Two categories:
+//  - Streak (tier_2 .. tier_10): one per X-in-a-row hype tier, unlocked
+//    when the streak callout fires
+//  - Skill (long_shot, marksman, sharpshooter, speed_demon): unlocked from
+//    in-round geometry (long_shot) or whole-run stats (others)
+// Storage keys are stable strings so renaming labels doesn't break stored
+// unlocks.
 const ACHIEVEMENTS_KEY = 'kc-achievements';
 function readAchievements() {
   try { return JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || '{}'); }
   catch (_) { return {}; }
 }
-function unlockAchievement(tier) {
+function unlockAchievement(key) {
   const map = readAchievements();
-  const key = `tier_${tier}`;
   if (map[key] && map[key].unlocked) return false;     // already had it
   map[key] = { unlocked: true, ts: Date.now(), runSeed: S.seed || null };
   try { localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(map)); } catch (_) {}
   return true;                                          // newly unlocked
+}
+function tryUnlock(key) {
+  if (unlockAchievement(key)) S.newAchievements.push(key);
+}
+
+// Skill achievements — separate from the streak ladder. Order here drives
+// display order in the modal's Skill section and in the recap pill row.
+const SKILL_ACHIEVEMENTS = [
+  { key: 'long_shot',
+    label: 'Long Shot!',
+    desc: 'Spotless when centroid sits 3+ cells from any dot' },
+  { key: 'marksman',
+    label: 'Marksman',
+    desc: 'Run total ≥ 90' },
+  { key: 'sharpshooter',
+    label: 'Sharpshooter',
+    desc: 'Run total ≥ 95' },
+  { key: 'speed_demon',
+    label: 'Speed Demon',
+    desc: 'Avg time ≤ 1.0s with score ≥ 90' },
+];
+
+// Helper: how far is the (rounded) centroid from the nearest dot, by
+// Chebyshev distance? Used for the Long Shot unlock condition.
+function nearestDotChebyshev(point, dots) {
+  let min = Infinity;
+  for (const d of dots) {
+    const dist = chebyshev(point, d);
+    if (dist < min) min = dist;
+  }
+  return min;
 }
 
 function renderRunHistory(history) {
@@ -937,10 +984,21 @@ function showRecap() {
   // Append this run to recent-history and render the sparkline.
   const recent = pushRunHistory(total, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
   renderRunHistory(recent);
-  renderAchievements();
-  const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
-  const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
-  const perf  = h.filter(r => r.perfect).length;
+
+  // Run-level stats — needed both for the display and for skill unlocks.
+  const avgRound    = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length) : 0;
+  const avgTimerRaw = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length)        : 0;
+  const perf        = h.filter(r => r.perfect).length;
+
+  // Whole-run skill achievements. Checked here so the unlock's runSeed
+  // metadata reflects the run that earned it (S.seed is still set).
+  if (total >= 95) tryUnlock('sharpshooter');
+  if (total >= 90) tryUnlock('marksman');
+  if (total >= 90 && avgTimerRaw <= 1.0) tryUnlock('speed_demon');
+
+  renderAchievements();                 // include any skill unlocks just fired
+  const avg  = avgRound.toFixed(1);
+  const avgT = avgTimerRaw.toFixed(1);
 
   const flawless = S.perfectStreak >= MAX_ROUNDS;
   dom.recapTitle.textContent = flawless ? 'PERFECT RUN' : 'Game Over';
@@ -1192,45 +1250,63 @@ function fmtUnlockDate(ts) {
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
+function buildAchRow(meta, colorCls, rec) {
+  const isUnlocked = !!(rec && rec.unlocked);
+  const cls = `ach-row ${colorCls} ${isUnlocked ? 'is-unlocked' : 'is-locked'}`;
+  if (isUnlocked) {
+    const tail = `Unlocked ${fmtUnlockDate(rec.ts)}` +
+                 (rec.runSeed ? ` · ${rec.runSeed}` : '');
+    return (
+      `<li class="${cls}">` +
+        `<span class="ach-row-marker" aria-hidden="true"></span>` +
+        `<div class="ach-row-body">` +
+          `<div class="ach-row-name">${meta.label}</div>` +
+          `<div class="ach-row-desc">${meta.desc}</div>` +
+          `<div class="ach-row-meta">${tail}</div>` +
+        `</div>` +
+      `</li>`
+    );
+  }
+  // Locked: name + LOCKED status only — description stays a surprise.
+  return (
+    `<li class="${cls}">` +
+      `<span class="ach-row-marker" aria-hidden="true"></span>` +
+      `<div class="ach-row-body">` +
+        `<div class="ach-row-name">${meta.label}</div>` +
+      `</div>` +
+      `<span class="ach-row-status">Locked</span>` +
+    `</li>`
+  );
+}
+
 function renderAchievementsModal() {
   const map = readAchievements();
-  const rows = [];
-  let unlockedCount = 0;
+  const streakRows = [];
+  const skillRows  = [];
+  let streakUnlocked = 0, skillUnlocked = 0;
+  const streakTotal = HYPE_TIERS.length - 2;       // tiers 2..10 = 9
+  const skillTotal  = SKILL_ACHIEVEMENTS.length;
+
   for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
     const cfg = HYPE_TIERS[tier];
     if (!cfg) continue;
     const rec = map[`tier_${tier}`];
-    const isUnlocked = !!(rec && rec.unlocked);
-    if (isUnlocked) unlockedCount++;
-    const cls = `ach-row ach-tier-${tier} ${isUnlocked ? 'is-unlocked' : 'is-locked'}`;
-    if (isUnlocked) {
-      const meta = `Unlocked ${fmtUnlockDate(rec.ts)}` +
-                   (rec.runSeed ? ` · ${rec.runSeed}` : '');
-      rows.push(
-        `<li class="${cls}">` +
-          `<span class="ach-row-marker" aria-hidden="true"></span>` +
-          `<div class="ach-row-body">` +
-            `<div class="ach-row-name">${cfg.label}</div>` +
-            `<div class="ach-row-desc">${cfg.desc}</div>` +
-            `<div class="ach-row-meta">${meta}</div>` +
-          `</div>` +
-        `</li>`
-      );
-    } else {
-      // Locked: name only — description stays a surprise until unlock.
-      rows.push(
-        `<li class="${cls}">` +
-          `<span class="ach-row-marker" aria-hidden="true"></span>` +
-          `<div class="ach-row-body">` +
-            `<div class="ach-row-name">${cfg.label}</div>` +
-          `</div>` +
-          `<span class="ach-row-status">Locked</span>` +
-        `</li>`
-      );
-    }
+    if (rec && rec.unlocked) streakUnlocked++;
+    streakRows.push(buildAchRow(cfg, `ach-tier-${tier}`, rec));
   }
-  dom.achModalList.innerHTML = rows.join('');
-  dom.achModalCount.textContent = `${unlockedCount} / ${HYPE_TIERS.length - 2}`;
+  for (const ach of SKILL_ACHIEVEMENTS) {
+    const rec = map[ach.key];
+    if (rec && rec.unlocked) skillUnlocked++;
+    skillRows.push(buildAchRow(ach, `ach-key-${ach.key.replace(/_/g, '-')}`, rec));
+  }
+
+  dom.achModalList.innerHTML = (
+    `<li class="ach-section-header">Streak<span class="ach-section-count">${streakUnlocked} / ${streakTotal}</span></li>` +
+    streakRows.join('') +
+    `<li class="ach-section-header">Skill<span class="ach-section-count">${skillUnlocked} / ${skillTotal}</span></li>` +
+    skillRows.join('')
+  );
+  dom.achModalCount.textContent = `${streakUnlocked + skillUnlocked} / ${streakTotal + skillTotal}`;
 }
 function openAchievementsModal() {
   renderAchievementsModal();
