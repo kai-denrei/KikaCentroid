@@ -1542,14 +1542,27 @@ const DEMO_SCENES = [
 ];
 const demoState = { playing: false, raf: 0, sceneIdx: 0, sceneStart: 0 };
 const easeInOut = (t) => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
-const tCanvas = document.getElementById('tutorial-canvas');
+// Tutorial DOM refs cached once at module top — the tutorialUpdate path
+// runs inside the demo's 60fps RAF loop; raw getElementById per-frame is
+// wasteful and the abstraction is just architecturally cleaner.
+const tDom = {
+  canvas:    $('tutorial-canvas'),
+  count:     $('tutorial-count'),
+  minus:     $('tutorial-minus'),
+  plus:      $('tutorial-plus'),
+  math:      $('tutorial-math'),
+  modal:     $('tutorial-modal'),
+  demoBtn:   $('tutorial-demo'),
+  hint:      document.querySelector('.tutorial-hint'),
+  wrap:      document.querySelector('.tutorial-canvas-wrap'),
+};
+const tCanvas = tDom.canvas;
 const tCtx    = tCanvas.getContext('2d');
 
 function tutorialSize() {
   // Fit the canvas inside the modal card width (with breathing room).
-  const wrap = document.querySelector('.tutorial-canvas-wrap');
-  if (!wrap || !wrap.clientWidth) return;
-  const avail = Math.min(wrap.clientWidth, 340);
+  if (!tDom.wrap || !tDom.wrap.clientWidth) return;
+  const avail = Math.min(tDom.wrap.clientWidth, 340);
   const cell  = Math.max(16, Math.floor(avail / T_GRID));
   const px    = cell * T_GRID;
   tutorial.cellPx = cell;
@@ -1627,10 +1640,10 @@ function tutorialMathHTML() {
 }
 
 function tutorialUpdate() {
-  document.getElementById('tutorial-count').textContent = String(tutorial.dots.length);
-  document.getElementById('tutorial-minus').disabled = tutorial.dots.length <= T_MIN_DOTS;
-  document.getElementById('tutorial-plus').disabled  = tutorial.dots.length >= T_MAX_DOTS;
-  document.getElementById('tutorial-math').innerHTML = tutorialMathHTML();
+  tDom.count.textContent = String(tutorial.dots.length);
+  tDom.minus.disabled = tutorial.dots.length <= T_MIN_DOTS;
+  tDom.plus.disabled  = tutorial.dots.length >= T_MAX_DOTS;
+  tDom.math.innerHTML = tutorialMathHTML();
   tutorialDraw();
 }
 
@@ -1687,7 +1700,7 @@ tCanvas.addEventListener('pointerup',     tutorialEnd);
 tCanvas.addEventListener('pointercancel', tutorialEnd);
 tCanvas.addEventListener('pointerleave',  tutorialEnd);
 
-document.getElementById('tutorial-plus').addEventListener('click', () => {
+tDom.plus.addEventListener('click', () => {
   if (tutorial.dots.length >= T_MAX_DOTS) return;
   // Place a new dot on a free cell — try a few random spots, fall back to scan.
   const used = new Set(tutorial.dots.map(d => `${d.x},${d.y}`));
@@ -1709,46 +1722,43 @@ document.getElementById('tutorial-plus').addEventListener('click', () => {
     tutorialUpdate();
   }
 });
-document.getElementById('tutorial-minus').addEventListener('click', () => {
+tDom.minus.addEventListener('click', () => {
   if (tutorial.dots.length <= T_MIN_DOTS) return;
   tutorial.dots.pop();
   if (tutorial.selectedIdx >= tutorial.dots.length) tutorial.selectedIdx = -1;
   tutorialUpdate();
 });
 
-const tutorialModal = document.getElementById('tutorial-modal');
-document.getElementById('btn-tutorial').addEventListener('click', () => {
-  tutorialModal.hidden = false;
+$('btn-tutorial').addEventListener('click', () => {
+  tDom.modal.hidden = false;
   // Size after layout — modal needs to be visible for clientWidth to be real.
   requestAnimationFrame(() => { tutorialSize(); tutorialUpdate(); });
 });
-tutorialModal.addEventListener('click', (e) => {
+tDom.modal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    tutorialModal.hidden = true;
+    tDom.modal.hidden = true;
     tutorialSelect(-1);
     if (demoState.playing) demoStop();    // closing while demo plays kills it
   }
 });
 
 // ── Tutorial demo (pre-recorded scenes) ──────────────────────────────────
-const demoBtn   = document.getElementById('tutorial-demo');
-const tHintEl   = document.querySelector('.tutorial-hint');
 let tHintHTMLOriginal = null;
 
 function demoSetCaption(text) {
-  if (tHintHTMLOriginal === null) tHintHTMLOriginal = tHintEl.innerHTML;
-  tHintEl.classList.add('is-demo');
-  tHintEl.textContent = text;
+  if (tHintHTMLOriginal === null) tHintHTMLOriginal = tDom.hint.innerHTML;
+  tDom.hint.classList.add('is-demo');
+  tDom.hint.textContent = text;
 }
 function demoRestoreHint() {
-  tHintEl.classList.remove('is-demo');
-  if (tHintHTMLOriginal !== null) tHintEl.innerHTML = tHintHTMLOriginal;
+  tDom.hint.classList.remove('is-demo');
+  if (tHintHTMLOriginal !== null) tDom.hint.innerHTML = tHintHTMLOriginal;
 }
 function demoSetUI(playing) {
-  demoBtn.classList.toggle('is-playing', playing);
-  demoBtn.textContent = playing ? '■ Stop' : '▶ Play Demo';
-  document.getElementById('tutorial-plus').disabled  = playing || tutorial.dots.length >= T_MAX_DOTS;
-  document.getElementById('tutorial-minus').disabled = playing || tutorial.dots.length <= T_MIN_DOTS;
+  tDom.demoBtn.classList.toggle('is-playing', playing);
+  tDom.demoBtn.textContent = playing ? '■ Stop' : '▶ Play Demo';
+  tDom.plus.disabled  = playing || tutorial.dots.length >= T_MAX_DOTS;
+  tDom.minus.disabled = playing || tutorial.dots.length <= T_MIN_DOTS;
 }
 function demoLoadScene(idx, now) {
   const scene = DEMO_SCENES[idx];
@@ -1796,7 +1806,7 @@ function demoStop() {
   demoRestoreHint();
   tutorialUpdate();
 }
-demoBtn.addEventListener('click', () => {
+tDom.demoBtn.addEventListener('click', () => {
   if (demoState.playing) demoStop();
   else                   demoStart();
 });
