@@ -5,7 +5,7 @@
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
 // Also bump the user-visible label in index.html (#app-version) to match.
-const CACHE_VERSION = 'v1.42';
+const CACHE_VERSION = 'v1.43';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
 
@@ -80,11 +80,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // CSS/JS/manifest from same origin → StaleWhileRevalidate from precache.
+  // Manifest → NetworkFirst so install metadata changes (name, theme_color,
+  // icons) actually propagate to already-installed Android PWAs. iOS only
+  // reads the manifest at install time, so its behavior is unaffected; this
+  // matters for Android Chrome which periodically re-reads.
+  if (req.destination === 'manifest') {
+    event.respondWith(networkFirst(req, PRECACHE));
+    return;
+  }
+
+  // CSS/JS from same origin → StaleWhileRevalidate from precache.
   if (
     req.destination === 'style' ||
-    req.destination === 'script' ||
-    req.destination === 'manifest'
+    req.destination === 'script'
   ) {
     event.respondWith(staleWhileRevalidate(req, PRECACHE));
     return;
@@ -111,6 +119,21 @@ async function navigationHandler(event) {
     const cached = await cache.match('./index.html') || await cache.match('./');
     if (cached) return cached;
     return cache.match('./offline.html');
+  }
+}
+
+async function networkFirst(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const res = await fetch(req);
+    if (res && res.ok && res.type === 'basic') {
+      cache.put(req, res.clone()).catch(() => {});
+    }
+    return res;
+  } catch (err) {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    throw err;
   }
 }
 

@@ -576,6 +576,7 @@ dom.canvas.addEventListener('pointerleave', () => {
 });
 dom.canvas.addEventListener('pointerdown', (e) => {
   if (S.phase !== 'playing' || S.showResult) return;
+  if (S.guess) return;          // already committed this round; ignore extra taps
   const cell = cellAt(e);
   if (!cell) return;
   e.preventDefault();
@@ -992,9 +993,14 @@ const RESET_OVERLAY_MS = 1200;
 function abandonRun() {
   disarmReset();
   dom.resetOverlay.hidden = false;
-  setTimeout(() => {
+  // Snapshot seed metadata BEFORE the timer fires. If a new run begins
+  // before the overlay clears (rare, but a backgrounded-then-resumed tab
+  // can race), hardReset()'s clearScheduled() will cancel this scheduled
+  // call so we don't pollute the next run's seed with a phantom 0.
+  const snap = { seed: S.seed, attempt: S.seedAttempt, origin: S.seedOrigin };
+  schedule(() => {
     dom.resetOverlay.hidden = true;
-    pushRunHistory(0, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
+    pushRunHistory(0, hardMode, snap.seed, snap.attempt, snap.origin);
     hardReset();
     hideBoard();
     updateUI();
