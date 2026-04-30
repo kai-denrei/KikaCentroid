@@ -23,8 +23,8 @@
        version bumps. Each release uses a different URL → cache miss →
        network fetch → fresh CSS even if an old SW is still active. Bump
        this in lockstep with CACHE_VERSION in sw.js. -->
-  <link rel="preload" as="style" href="styles.css?v=1.52">
-  <link rel="stylesheet" href="styles.css?v=1.52">
+  <link rel="preload" as="style" href="styles.css?v=1.53">
+  <link rel="stylesheet" href="styles.css?v=1.53">
 </head>
 <body>
 
@@ -32,7 +32,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v1.52</span>
+      <span id="app-version" class="version" aria-label="version">v1.53</span>
       <!-- Shown only when ?mode=tetro is active (toggled by JS). -->
       <span id="mode-badge" class="mode-badge" hidden>TETRO</span>
     </span>
@@ -304,6 +304,6 @@
     </div>
   </noscript>
 
-  <script type="module" src="game.js?v=1.52"></script>
+  <script type="module" src="game.js?v=1.53"></script>
 </body>
 </html>
