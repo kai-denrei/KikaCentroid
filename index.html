@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v1.38</span>
+      <span id="app-version" class="version" aria-label="version">v1.42</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -50,8 +50,7 @@
     <div class="card">
 
       <div class="title-block">
-        <h1 class="title">Centroid (x̄, ȳ) — GRID FAST</h1>
-        <p id="subtitle" class="subtitle">10 rounds · lowest score wins</p>
+        <p id="subtitle" class="subtitle" hidden></p>
       </div>
 
       <div id="score-row" class="score-row" hidden>
@@ -85,27 +84,33 @@
       </div>
 
       <section id="idle-screen" class="idle">
-        <div class="idle-title">How to Play</div>
-        <p class="idle-body">
-          Estimate the <strong class="hl-cyan">centroid<sup>*</sup></strong> of the blue squares.
-        </p>
+        <div class="idle-title">Find the Center</div>
         <ol class="idle-steps">
-          <li><strong class="hl-cyan">TAP</strong> a cell — commits instantly, no take-backs</li>
-          <li><strong class="hl-red">Race the clock</strong> · trust your gut</li>
+          <li><strong class="hl-cyan">TAP</strong> a cell · instant commit</li>
+          <li><strong class="hl-red">Be fast</strong> · trust your gut</li>
         </ol>
         <p class="idle-body idle-scoring">
-          Each round starts with <strong class="hl-cyan">10 points</strong>.<br>
-          Lose <strong class="hl-red">1 per second</strong> after 3s.<br>
-          Lose 1 per cell <strong class="hl-red">off-target</strong>.<br>
-          <strong class="hl-green">Perfect Score is 100.</strong>
+          10 rounds · <strong class="hl-cyan">10 points</strong> each<br>
+          Lose <strong class="hl-red">1 per second</strong> after 3s<br>
+          Lose <strong class="hl-red">1 per cell</strong> off-target<br>
+          <strong class="hl-green">Perfect score is 100</strong>
         </p>
         <div class="idle-legend">
           <canvas id="sample-canvas" aria-hidden="true"></canvas>
-          <ul class="legend-list">
-            <li><span class="dot dot-blue"></span> Dots</li>
-            <li><span class="dot dot-green"></span> True centroid</li>
-            <li><span class="dot dot-red"></span> Your guess</li>
-          </ul>
+          <div class="legend-right">
+            <button id="action-btn" type="button" class="action-btn idle-action-btn" aria-live="polite">
+              <div id="btn-label" class="btn-label">START GAME</div>
+              <div class="btn-sub">
+                x̄ = (1/n) Σ xᵢ<br>
+                ȳ = (1/n) Σ yᵢ
+              </div>
+            </button>
+            <ul class="legend-list">
+              <li><span class="dot dot-blue"></span> Dots</li>
+              <li><span class="dot dot-green"></span> Centroid</li>
+              <li><span class="dot dot-red"></span> Guess</li>
+            </ul>
+          </div>
         </div>
         <details id="seed-panel" class="seed-panel">
           <summary class="seed-summary">
@@ -142,12 +147,7 @@
         </button>
       </section>
 
-      <button id="action-btn" type="button" class="action-btn" aria-live="polite">
-        <div id="btn-label" class="btn-label">START GAME</div>
-        <div class="btn-sub">x̄ = (1/n) Σ xᵢ &nbsp;&nbsp; ȳ = (1/n) Σ yᵢ</div>
-      </button>
-
-      <p id="hint-text" class="hint">Tap START GAME to begin</p>
+      <p id="hint-text" class="hint" hidden></p>
 
     </div>
   </main>

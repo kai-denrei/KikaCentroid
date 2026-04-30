@@ -676,16 +676,26 @@ function showStreakCallout(tier) {
   if (!cfg) return;
   const el = dom.streakFlash;
   el.className = 'streak-flash';                        // reset tier classes
+  el.classList.add(`tier-${tier}`);                     // apply BEFORE measuring
+  el.textContent = cfg.label;
 
-  // Anchor 2 cells above the guess so the callout doesn't sit on the user's
-  // finger / cover the cell they just tapped.
+  // Anchor 2 cells above the guess. Horizontal: clamp so the scaled label
+  // stays inside the canvas frame — long labels at high tiers (e.g.
+  // "Penultimate!" at 2.7×) would otherwise extend off-canvas.
   if (S.guess) {
+    const scale = parseFloat(getComputedStyle(el).getPropertyValue('--streak-scale')) || 1.5;
+    // Monospace label width estimate at base 22px font.
+    const halfLabelPx = (cfg.label.length * 22 * 0.6 * scale) / 2;
+    const ideal = (S.guess.x + 0.5) * cellPx;
+    const minL  = halfLabelPx;
+    const maxL  = boardPx - halfLabelPx;
+    const left  = (minL > maxL) ? boardPx / 2
+                                : Math.max(minL, Math.min(maxL, ideal));
     el.style.top  = `${(S.guess.y - 2) * cellPx}px`;
-    el.style.left = `${(S.guess.x + 0.5) * cellPx}px`;
+    el.style.left = `${left}px`;
   }
   void el.offsetWidth;                                  // restart animation
-  el.textContent = cfg.label;
-  el.classList.add(`tier-${tier}`, 'show');
+  el.classList.add('show');
   el.hidden = false;
   schedule(() => {
     el.hidden = true;
@@ -1005,7 +1015,6 @@ function hideHalo() {
 
 // Unicode round-progress bar — 20 chars wide, 2 per round.
 // `round` is the round currently being played (1..MAX_ROUNDS) or 0 before start.
-const IDLE_SUBTITLE = '10 rounds · score up to 100';
 function progressBarHTML(round) {
   const segs   = MAX_ROUNDS;
   const filled = Math.max(0, Math.min(segs, round));
@@ -1018,11 +1027,13 @@ function progressBarHTML(round) {
 function updateUI() {
   const p = S.phase;
 
-  // Subtitle: idle text on the welcome screen, progress bar everywhere else.
+  // Subtitle: hidden in idle (the row is reclaimed for vertical space), shows
+  // the progress bar during active play.
   if (p === 'idle') {
-    dom.subtitle.textContent = IDLE_SUBTITLE;
+    dom.subtitle.hidden = true;
     dom.subtitle.classList.remove('progress');
   } else {
+    dom.subtitle.hidden = false;
     dom.subtitle.innerHTML = progressBarHTML(S.round);
     dom.subtitle.classList.add('progress');
   }
@@ -1051,9 +1062,18 @@ function updateUI() {
     dom.btnLabel.textContent = 'PLACE GUESS';
   }
 
-  if      (p === 'idle')                dom.hint.textContent = 'Tap START GAME to begin';
-  else if (p === 'playing' && !S.guess) dom.hint.textContent = 'Tap a cell to commit your guess';
-  else                                  dom.hint.textContent = '…';
+  // Hint: hidden in idle (the START GAME button is self-explanatory),
+  // shown during play to guide the user.
+  if (p === 'idle') {
+    dom.hint.hidden = true;
+    dom.hint.textContent = '';
+  } else if (p === 'playing' && !S.guess) {
+    dom.hint.hidden = false;
+    dom.hint.textContent = 'Tap a cell to commit your guess';
+  } else {
+    dom.hint.hidden = false;
+    dom.hint.textContent = '…';
+  }
 }
 
 // ── Buttons ──────────────────────────────────────────────────────────────
