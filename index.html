@@ -19,8 +19,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="KikaCentroid">
 
-  <link rel="preload" as="style" href="styles.css">
-  <link rel="stylesheet" href="styles.css">
+  <!-- Versioned query string busts the SW's StaleWhileRevalidate cache on
+       version bumps. Each release uses a different URL → cache miss →
+       network fetch → fresh CSS even if an old SW is still active. Bump
+       this in lockstep with CACHE_VERSION in sw.js. -->
+  <link rel="preload" as="style" href="styles.css?v=1.50">
+  <link rel="stylesheet" href="styles.css?v=1.50">
 </head>
 <body>
 
@@ -28,7 +32,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v1.49</span>
+      <span id="app-version" class="version" aria-label="version">v1.50</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -298,6 +302,6 @@
     </div>
   </noscript>
 
-  <script type="module" src="game.js"></script>
+  <script type="module" src="game.js?v=1.50"></script>
 </body>
 </html>

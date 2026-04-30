@@ -5,15 +5,20 @@
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
 // Also bump the user-visible label in index.html (#app-version) to match.
-const CACHE_VERSION = 'v1.49';
+const CACHE_VERSION = 'v1.50';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
+
+// Strip the leading 'v' for the asset query string so URLs read `?v=1.50`
+// rather than `?v=v1.50`. HTML must reference the same versioned URLs —
+// keep both in lockstep on every release.
+const ASSET_VER = CACHE_VERSION.replace(/^v/, '');
 
 const PRECACHE_URLS = [
   './',
   './index.html',
-  './styles.css',
-  './game.js',
+  `./styles.css?v=${ASSET_VER}`,
+  `./game.js?v=${ASSET_VER}`,
   './offline.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
