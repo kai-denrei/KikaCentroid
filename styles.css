@@ -174,6 +174,7 @@ button {
   pointer-events: none;
 }
 
+
 /* ── Main play area ───────────────────────────────────── */
 .board-wrap {
   flex: 1 1 auto;
@@ -294,6 +295,110 @@ button {
   text-shadow: 0 0 16px var(--green-soft);
 }
 .pts-flash[hidden] { display: none; }
+
+/* Streak callout — fires on consecutive spotless rounds (≥2). Sits above
+   the existing pts-flash so the streak label and the +10 stack vertically.
+   Tier classes drive color and scale; intensity escalates 2 → 9. Tier 10
+   is the run-end "PERFECT!" — same callout, plus a full-screen overlay. */
+.streak-flash {
+  position: absolute;
+  /* top/left set by JS to anchor above the user's last guess.
+     translate(-50%, -100%) makes (top, left) the element's bottom-center,
+     and transform-origin: bottom-center makes scale grow upward, away
+     from the play area. */
+  transform: translate(-50%, -100%) scale(1);
+  transform-origin: 50% 100%;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 22px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 11;
+  line-height: 1;
+  color: var(--cyan);
+  text-shadow: 0 0 18px currentColor;
+  opacity: 0;
+}
+.streak-flash[hidden] { display: none; }
+.streak-flash.show {
+  animation: streak-pop var(--streak-dur, 1300ms) cubic-bezier(.2,.8,.3,1) both;
+}
+/* All streak tiers share one duration — the higher tiers were burning more
+   time on the scale-up entrance, leaving less hold time, so they felt
+   briefer than Duo/Triple even with longer total durations. Unified at
+   2000ms, with tier 10 (run-ender) longer to pair with the overlay. */
+.streak-flash.tier-2  { color: #00d4ff; --streak-scale: 1.4; --streak-dur: 2000ms; }
+.streak-flash.tier-3  { color: #00d4ff; --streak-scale: 1.5; --streak-dur: 2000ms; }
+.streak-flash.tier-4  { color: #00ff88; --streak-scale: 1.7; --streak-dur: 2000ms; }
+.streak-flash.tier-5  { color: #00ff88; --streak-scale: 1.9; --streak-dur: 2000ms; }
+.streak-flash.tier-6  { color: #ffaa00; --streak-scale: 2.1; --streak-dur: 2000ms; }
+.streak-flash.tier-7  { color: #ffaa00; --streak-scale: 2.3; --streak-dur: 2000ms; }
+.streak-flash.tier-8  { color: #ff6b6b; --streak-scale: 2.5; --streak-dur: 2000ms; }
+.streak-flash.tier-9  { color: #ff4444; --streak-scale: 2.7; --streak-dur: 2000ms; }
+.streak-flash.tier-10 { color: #ffffff; --streak-scale: 3.0; --streak-dur: 2800ms;
+                        text-shadow: 0 0 24px #fff, 0 0 48px var(--cyan); }
+
+@keyframes streak-pop {
+  0%   { opacity: 0; transform: translate(-50%, -100%) scale(.4); }
+  14%  { opacity: 1; transform: translate(-50%, -100%) scale(calc(var(--streak-scale, 1.5) * 1.05)); }
+  28%  { transform: translate(-50%, -100%) scale(var(--streak-scale, 1.5)); }
+  88%  { opacity: 1; transform: translate(-50%, -100%) scale(var(--streak-scale, 1.5)); }
+  100% { opacity: 0; transform: translate(-50%, -100%) scale(calc(var(--streak-scale, 1.5) * 1.05)); }
+}
+
+/* Perfect-run overlay — only fires when streak hits 10 (all rounds spotless).
+   Full-screen flash that plays before the recap modal opens. */
+.perfect-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(0, 212, 255, .25), rgba(5, 5, 10, .92));
+  z-index: 70;
+  animation: perfect-overlay-in .35s cubic-bezier(.2,.8,.3,1);
+}
+.perfect-overlay[hidden] { display: none; }
+.perfect-overlay-card {
+  font-family: var(--mono);
+  text-align: center;
+  padding: 28px 36px;
+  border: 1px solid var(--cyan);
+  border-radius: 10px;
+  background: rgba(0, 212, 255, .06);
+  box-shadow: 0 0 60px rgba(0, 212, 255, .55), inset 0 0 24px rgba(0, 212, 255, .15);
+  animation: perfect-card-pulse 1.4s ease-in-out infinite;
+}
+.perfect-overlay-title {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: #fff;
+  text-shadow: 0 0 20px var(--cyan), 0 0 40px var(--cyan);
+  margin: 0 0 8px;
+}
+.perfect-overlay-sub {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  margin: 0;
+}
+@keyframes perfect-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes perfect-card-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 60px rgba(0, 212, 255, .55), inset 0 0 24px rgba(0, 212, 255, .15); }
+  50%      { transform: scale(1.03); box-shadow: 0 0 90px rgba(0, 212, 255, .80), inset 0 0 36px rgba(0, 212, 255, .28); }
+}
+
+/* Recap title gets a celebratory variant when the run was flawless. */
+.modal-title.perfect {
+  color: var(--cyan);
+  text-shadow: 0 0 14px var(--cyan);
+  letter-spacing: 0.18em;
+}
 
 /* Pre-grid bar: pdots flush left, halo centred under the TOTAL number,
    right column intentionally empty so the halo sits at the page midline. */
@@ -511,6 +616,145 @@ button {
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
+
+/* Seed panel: collapsed-by-default <details> with a "+ Challenge seed"
+   summary. Expanded panel exposes input + Use/Random buttons + active seed
+   indicator. Visually subdued so it doesn't compete with How-to-Play. */
+.seed-panel {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.seed-panel[open] .seed-summary-icon::before { content: '−'; }
+.seed-panel:not([open]) .seed-summary-icon::before { content: '+'; }
+.seed-summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.seed-summary::-webkit-details-marker { display: none; }
+.seed-summary-icon {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--cyan);
+}
+.seed-summary-label { letter-spacing: 0.04em; }
+.seed-summary:hover { color: var(--ink-dim); }
+
+.seed-body {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.seed-input-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.seed-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 6px;
+  letter-spacing: 0.04em;
+}
+.seed-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+.seed-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.seed-btn:hover, .seed-btn:focus-visible {
+  background: rgba(0, 212, 255, 0.08);
+  outline: none;
+}
+.seed-btn-alt {
+  color: var(--ink-dim);
+  border-color: var(--line);
+}
+.seed-btn-alt:hover, .seed-btn-alt:focus-visible {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ink-mute);
+  color: var(--ink);
+}
+.seed-active {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 6px;
+  border: 1px solid var(--cyan);
+  border-radius: 3px;
+  background: rgba(0, 212, 255, 0.06);
+}
+.seed-active[hidden] { display: none; }
+.seed-active-label {
+  color: var(--ink-mute);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.seed-active-val {
+  color: var(--cyan);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.seed-active-meta {
+  color: var(--ink-mute);
+  font-size: 10.5px;
+}
+.seed-clear {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.seed-clear:hover { color: var(--red-soft); }
+.seed-error {
+  margin: 0;
+  color: var(--red-soft);
+  font-size: 10.5px;
+}
+.seed-error[hidden] { display: none; }
+.seed-error code {
+  font-family: var(--mono);
+  color: var(--ink);
+  background: var(--bg);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
 .idle-footnote {
   font-size: 10.5px;
   color: var(--ink-mute);
@@ -705,6 +949,226 @@ button {
   padding: 12px 14px;
   font-family: var(--mono);
 }
+/* "Watch Tutorial?" trigger — sits in the idle screen, between the centroid
+   footnote and the START GAME button. Subtle by default, highlights cyan
+   on hover so it reads as an action without competing with START GAME. */
+.tutorial-btn {
+  margin: 10px auto 0;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  background: transparent;
+  color: var(--ink-dim);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+}
+.tutorial-btn:hover, .tutorial-btn:focus-visible {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  outline: none;
+}
+.tutorial-btn-icon {
+  font-size: 9px;
+  color: var(--cyan);
+  transform: translateY(-0.5px);
+}
+
+/* Tutorial modal: full-width canvas, integer math readout, dot-count
+   stepper. Reuses .modal but the card adapts to canvas-first layout. */
+.tutorial-card {
+  width: min(92vw, 380px);
+}
+.tutorial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 6px;
+}
+.tutorial-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0;
+}
+.tutorial-close {
+  background: transparent;
+  border: none;
+  color: var(--ink-mute);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.tutorial-close:hover { color: var(--red-soft); }
+
+.tutorial-hint {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.tutorial-hint-mobile { display: none; }
+@media (pointer: coarse) {
+  .tutorial-hint-mobile { display: inline; }
+}
+
+.tutorial-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 8px;
+}
+#tutorial-canvas {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+}
+#tutorial-canvas.is-grabbing { cursor: grabbing; }
+
+.tutorial-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+.tutorial-step {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  width: 32px;
+  height: 28px;
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+.tutorial-step:hover { background: rgba(0, 212, 255, 0.1); }
+.tutorial-step:disabled {
+  color: var(--line);
+  border-color: var(--line);
+  cursor: not-allowed;
+}
+.tutorial-count-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.tutorial-count-label strong { color: var(--ink); font-weight: 600; }
+
+.tutorial-math {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 6px 8px;
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.tutorial-math .hl-cyan { color: var(--cyan); }
+.tutorial-math .hl-green { color: var(--green); }
+
+.tutorial-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+#tutorial-demo.is-playing {
+  color: var(--red);
+  border-color: var(--red);
+}
+.tutorial-hint.is-demo {
+  color: var(--ink);
+  font-style: italic;
+}
+
+/* Run-detail modal: stacked above recap (z-index higher), narrower card. */
+.modal-stacked { z-index: 110; }
+.modal-card-mini {
+  width: min(86vw, 320px);
+  padding: 14px 16px;
+}
+.run-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+.run-modal-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.run-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--ink-mute);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.run-modal-close:hover { color: var(--red-soft); }
+.run-modal-rows {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 11.5px;
+}
+.run-modal-rows li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  gap: 8px;
+}
+.run-modal-rows li:last-child { border-bottom: none; }
+.run-modal-rows li[hidden] { display: none; }
+.run-modal-rows span:first-child {
+  color: var(--ink-mute);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.run-modal-rows strong, .run-modal-rows code {
+  color: var(--ink);
+  font-family: var(--mono);
+}
+.run-modal-rows code {
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+}
+.run-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.run-modal-actions .seed-btn[hidden] { display: none; }
+
 .modal-header { text-align: center; margin-bottom: 8px; }
 .modal-title {
   font-size: 14px;
@@ -730,11 +1194,65 @@ button {
 .recap-total {
   font-size: 20px;
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--cyan);                /* fallback before tier class is applied */
   line-height: 1.1;
 }
 .recap-total-box .score-label { font-size: 9px; margin-top: 2px; }
 .ok { color: var(--green-soft); }
+
+/* Recap seed line: shown only when the run was seeded. Tag colors:
+   cyan = self-generated, green = challenge (foreign first attempt),
+   amber = replay (attempt > 1). */
+.recap-seed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.recap-seed[hidden] { display: none; }
+.recap-seed-label {
+  color: var(--ink-mute);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.recap-seed-val {
+  font-family: var(--mono);
+  color: var(--cyan);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.recap-seed-tag {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+}
+.recap-seed-tag.tag-self     { color: var(--cyan); }
+.recap-seed-tag.tag-foreign  { color: var(--green-soft); }
+.recap-seed-tag.tag-replay   { color: #ffaa00; }
+.recap-seed-copy {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.recap-seed-copy:hover { background: rgba(0, 212, 255, 0.1); }
 
 .recap-stats {
   display: flex;
@@ -797,13 +1315,44 @@ button {
   text-align: center;
   line-height: 1.4;
 }
-.recap-history .s-cyan    { color: var(--cyan); }
-.recap-history .s-green   { color: var(--green); }
-.recap-history .s-orange  { color: var(--orange); }
+/* Score-tier ladder — orange in the 80s, fine green/cyan/blue gradient at
+   90+, indigo glow at 100. Applied to both recap total and sparkline scores
+   so a single hex maps to one visual identity. */
+.s-low  { color: #6b7280; }
+.s-50   { color: #f87171; }
+.s-70   { color: #ffaa00; }
+.s-80   { color: #ff8c00; }
+.s-90   { color: #00ff88; text-shadow: 0 0 6px  rgba(0, 255, 136, .40); }
+.s-92   { color: #00eac4; text-shadow: 0 0 7px  rgba(0, 234, 196, .45); }
+.s-94   { color: #00d4ff; text-shadow: 0 0 8px  rgba(0, 212, 255, .50); }
+.s-96   { color: #2da0ff; text-shadow: 0 0 9px  rgba(45, 160, 255, .55); }
+.s-98   { color: #4487ff; text-shadow: 0 0 10px rgba(68, 135, 255, .60); }
+.s-100  { color: #5b6cff; text-shadow: 0 0 14px #5b6cff, 0 0 28px rgba(91, 108, 255, .55); }
 .recap-history .s-current { font-weight: 700; text-decoration: underline; }
 .recap-history .s-hard::after { content: '*'; color: var(--red); }
 .recap-history .s-arrow { color: var(--ink-mute); opacity: .55; margin: 0 1px; }
+.recap-history .s-fresh  { color: var(--cyan);    margin-right: 2px; font-size: 9px; vertical-align: 1px; }
+.recap-history .s-replay { color: #ffaa00;        margin-right: 2px; font-size: 9px; }
 .recap-history .empty { color: var(--ink-mute); font-style: italic; }
+
+/* Each run is a button that pops the run-detail modal. Reset chrome so it
+   reads as plain text in the sparkline; just hover-feedback to hint click. */
+.recap-history .run-link {
+  background: transparent;
+  border: none;
+  padding: 1px 3px;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.recap-history .run-link:hover,
+.recap-history .run-link:focus-visible {
+  background: rgba(0, 212, 255, 0.10);
+  outline: none;
+}
 .hist-col {
   flex: 1;
   display: flex;
