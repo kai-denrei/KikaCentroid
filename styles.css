@@ -273,23 +273,33 @@ button {
 
 .pts-flash {
   position: absolute;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* top/left set by JS to anchor at the guess cell. translate(-50%, -100%)
+     puts the bottom-center at (top, left); float-up animation moves the
+     element 20px upward while fading. */
+  transform: translate(-50%, -100%);
   font-family: var(--digital);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--red-soft);
   text-shadow: 0 0 16px var(--red);
   pointer-events: none;
   white-space: nowrap;
   z-index: 10;
+  opacity: 0;
 }
 .pts-flash.gain {
   color: var(--green);
   text-shadow: 0 0 16px var(--green-soft);
 }
 .pts-flash[hidden] { display: none; }
+.pts-flash.rising {
+  animation: pts-rise 600ms ease-out forwards;
+}
+@keyframes pts-rise {
+  0%   { opacity: 0; transform: translate(-50%, -100%); }
+  15%  { opacity: 1; transform: translate(-50%, -110%); }
+  100% { opacity: 0; transform: translate(-50%, -160%); }
+}
 
 /* Streak callout — fires on consecutive spotless rounds (≥2). Sits above
    the existing pts-flash so the streak label and the +10 stack vertically.
@@ -946,7 +956,14 @@ button {
   align-items: center;
   justify-content: center;
   padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+  /* Fade + subtle scale on open/close. JS toggles `is-open` AFTER setting
+     hidden=false (next frame), so the transition fires from the
+     opacity:0/scale:0.96 baseline to opacity:1/scale:1. Refined: 150ms,
+     no bounce. */
+  opacity: 0;
+  transition: opacity 150ms ease;
 }
+.modal.is-open { opacity: 1; }
 .modal[hidden] { display: none; }
 .modal-backdrop {
   position: absolute;
@@ -966,7 +983,10 @@ button {
   border-radius: 8px;
   padding: 12px 14px;
   font-family: var(--mono);
+  transform: scale(0.96);
+  transition: transform 150ms ease;
 }
+.modal.is-open .modal-card { transform: scale(1); }
 /* "Watch Tutorial?" trigger — sits in the idle screen, between the centroid
    footnote and the START GAME button. Subtle by default, highlights cyan
    on hover so it reads as an action without competing with START GAME. */
@@ -1711,3 +1731,16 @@ button {
 @media (display-mode: standalone) {
   #btn-install { display: none !important; }
 }
+
+/* Refined press-feedback on every interactive button. 0.97× scale for
+   80ms — small enough not to feel bouncy, just enough to confirm the
+   tap registered. Disabled buttons skip the effect. */
+button:not(:disabled) {
+  transition: transform 80ms ease;
+}
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+/* The toolbar pill's locked state already disables pointer-events; no
+   extra exclusion needed there. The reset-btn's :active handler can
+   chain with its existing animations — they don't conflict. */
