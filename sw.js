@@ -5,7 +5,7 @@
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
 // Also bump the user-visible label in index.html (#app-version) to match.
-const CACHE_VERSION = 'v1.51';
+const CACHE_VERSION = 'v1.52';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
 
@@ -17,6 +17,8 @@ const ASSET_VER = CACHE_VERSION.replace(/^v/, '');
 const PRECACHE_URLS = [
   './',
   './index.html',
+  './tetro/',
+  './tetro/index.html',
   `./styles.css?v=${ASSET_VER}`,
   `./game.js?v=${ASSET_VER}`,
   './offline.html',

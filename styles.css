@@ -99,6 +99,19 @@ button {
   color: var(--ink-mute);
   font-variant-numeric: tabular-nums;
 }
+/* Hidden-mode indicator — shown only in tetro variant. Cyan to differentiate
+   from the version label, compact so it doesn't crowd the toolbar. */
+.mode-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  padding: 1px 5px;
+  border: 1px solid var(--cyan);
+  border-radius: 3px;
+  margin-left: 2px;
+}
+.mode-badge[hidden] { display: none; }
 .toolbar-spacer { flex: 1; }
 
 .tbtn {
