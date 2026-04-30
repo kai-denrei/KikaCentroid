@@ -151,7 +151,7 @@ const HYPE_TIERS = [
   { label: 'Toripuru!',    desc: '3 spotless in a row' },
   { label: '四連続!',       desc: '4 spotless in a row' },
   { label: 'ペンタキル!',    desc: '5 spotless in a row' },
-  { label: 'Sex-tuple!',   desc: '6 spotless in a row' },
+  { label: 'Sextuple!',    desc: '6 spotless in a row' },
   { label: 'Heptapod!',    desc: '7 spotless in a row' },
   { label: 'Octopus!',     desc: '8 spotless in a row' },
   { label: 'Penultimate!', desc: '9 spotless in a row' },
@@ -864,10 +864,12 @@ function validate() {
     perfect: perfectAim,
   });
 
-  // Flash: "−X" (points lost) or "✨ +10 ✨" for a spotless round. Anchored
-  // at the guess cell, floats up + fades over 600ms.
+  // Flash: "−X" (points lost) or "+10" for a spotless round. Anchored at
+  // the guess cell, floats up + fades over 600ms. The .gain variant adds
+  // a small radial halo (perfect-overlay-mini) behind the text — a
+  // localized cousin of the full-screen perfect-run effect.
   dom.ptsFlash.classList.toggle('gain', spotless);
-  dom.ptsFlash.textContent = spotless ? '✨ +10 ✨' : `−${deductions}`;
+  dom.ptsFlash.textContent = spotless ? '+10' : `−${deductions}`;
   dom.ptsFlash.style.left = `${(S.guess.x + 0.5) * cellPx}px`;
   dom.ptsFlash.style.top  = `${S.guess.y * cellPx - 8}px`;
   dom.ptsFlash.classList.remove('rising');
@@ -1257,7 +1259,7 @@ function showRecap() {
                :                                     '';
     return `<div class="recap-row">
       <span>Round ${r.round}</span>
-      <span class="${cls}">${sign}${val} pts${r.perfect ? ' ✨' : ''}</span>
+      <span class="${cls}">${sign}${val} pts</span>
     </div>`;
   }).join('');
 

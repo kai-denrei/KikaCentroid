@@ -302,16 +302,47 @@ button {
 }
 .pts-flash.gain {
   color: var(--green);
-  text-shadow: 0 0 16px var(--green-soft);
+  text-shadow: 0 0 16px var(--green-soft), 0 0 32px var(--green-soft);
+}
+/* Spotless halo — a smaller, localized cousin of .perfect-overlay's
+   radial cyan flash. Only shown on the gain variant; rendered behind the
+   text via a pseudo-element so it doesn't affect layout. Pulses outward
+   in lockstep with the float-up to land its peak at ~20% of the rise. */
+.pts-flash.gain::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  margin-top: -48px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 255, 136, 0.55) 0%,
+                                      rgba(0, 255, 136, 0.15) 45%,
+                                      transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+  transform: scale(0.4);
+  opacity: 0;
 }
 .pts-flash[hidden] { display: none; }
 .pts-flash.rising {
   animation: pts-rise 600ms ease-out forwards;
 }
+.pts-flash.rising.gain::before {
+  animation: pts-halo 700ms ease-out forwards;
+}
 @keyframes pts-rise {
   0%   { opacity: 0; transform: translate(-50%, -100%); }
   15%  { opacity: 1; transform: translate(-50%, -110%); }
   100% { opacity: 0; transform: translate(-50%, -160%); }
+}
+@keyframes pts-halo {
+  0%   { transform: scale(0.4);  opacity: 0; }
+  18%  { transform: scale(1.0);  opacity: 1; }
+  45%  { transform: scale(1.35); opacity: 0.7; }
+  100% { transform: scale(2.0);  opacity: 0; }
 }
 
 /* Streak callout — fires on consecutive spotless rounds (≥2). Sits above
