@@ -135,6 +135,10 @@ function mkState() {
     seedAttempt: 0,               // device's Nth play of this seed (0 if no seed)
     longShotRound: 0,             // round nr that gets the long-shot puzzle
     newAchievements: [],          // tier numbers unlocked for the FIRST time this run
+    tapRipple:       null,        // { x, y, t0 } — cyan ring expanding from tap
+    spotlessRipple:  null,        // { x, y, t0 } — gold ring on spotless commit
+    dotsAppearT0:    0,           // round-start timestamp for dot stagger fade-in
+    validateAnimT0:  0,           // validate timestamp for vector line + centroid reveal
   };
 }
 
@@ -168,6 +172,58 @@ const UNLOCK_AT  = 91;
 // Tap a cell = place + auto-validate after a brief delay so the orange
 // guess marker registers visually before the validate flash.
 const COMMIT_DELAY_MS = 100;
+
+// ── Animation timing ─────────────────────────────────────────────────────
+// All durations in ms. Refined register: short, deliberate, no bounce.
+const ANIM_TAP_RIPPLE_MS      = 250;
+const ANIM_SPOTLESS_RIPPLE_MS = 350;
+const ANIM_DOT_STAGGER_MS     = 20;     // delay between successive dot fade-ins
+const ANIM_DOT_FADEIN_MS      = 200;
+const ANIM_VALIDATE_MS        = 200;    // total: line draw + centroid fade
+
+let animActive = false;
+let animRafId  = 0;
+function isAnimating(now) {
+  if (S.tapRipple      && now - S.tapRipple.t0      < ANIM_TAP_RIPPLE_MS)      return true;
+  if (S.spotlessRipple && now - S.spotlessRipple.t0 < ANIM_SPOTLESS_RIPPLE_MS) return true;
+  if (S.dotsAppearT0) {
+    const totalReveal = ANIM_DOT_STAGGER_MS * Math.max(0, S.dots.length - 1) + ANIM_DOT_FADEIN_MS;
+    if (now - S.dotsAppearT0 < totalReveal) return true;
+  }
+  if (S.validateAnimT0 && now - S.validateAnimT0 < ANIM_VALIDATE_MS) return true;
+  return false;
+}
+// Animated modal show/hide. Two-phase open (set hidden=false, then in the
+// next frame add `is-open` so the CSS transition fires from the
+// opacity:0/scale:0.96 baseline). Two-phase close (remove `is-open`, wait
+// for the 150ms transition, then set hidden=true).
+const MODAL_TRANSITION_MS = 150;
+function openModal(el) {
+  if (!el) return;
+  el.hidden = false;
+  // requestAnimationFrame ensures the browser renders the hidden=false
+  // state with opacity:0 before we add is-open, so the transition runs.
+  requestAnimationFrame(() => el.classList.add('is-open'));
+}
+function closeModal(el) {
+  if (!el) return;
+  el.classList.remove('is-open');
+  setTimeout(() => { el.hidden = true; }, MODAL_TRANSITION_MS);
+}
+
+function ensureAnimLoop() {
+  if (animActive) return;
+  animActive = true;
+  const tick = () => {
+    draw();
+    if (isAnimating(performance.now())) {
+      animRafId = requestAnimationFrame(tick);
+    } else {
+      animActive = false;
+    }
+  };
+  animRafId = requestAnimationFrame(tick);
+}
 // Clean up legacy preference key from when this was a toggleable mode.
 try { localStorage.removeItem('kc-oneshot-on'); } catch (_) {}
 
@@ -515,11 +571,31 @@ function draw() {
     ctx.fillRect(S.hover.x * cellPx + 1, S.hover.y * cellPx + 1, cellPx - 2, cellPx - 2);
   }
 
-  // Dots
+  const now = performance.now();
+
+  // Dots — staggered fade-in (scale 1.5→1.0, opacity 0→1) when a fresh
+  // round just started. Each dot's animation starts ANIM_DOT_STAGGER_MS
+  // after the previous one. After all dots finish, the static path runs.
   ctx.fillStyle = COLORS.dot;
-  for (const d of S.dots) {
-    ctx.fillRect(d.x * cellPx + 2, d.y * cellPx + 2, cellPx - 4, cellPx - 4);
+  for (let i = 0; i < S.dots.length; i++) {
+    const d = S.dots[i];
+    let alpha = 1, scale = 1;
+    if (S.dotsAppearT0) {
+      const localT = now - S.dotsAppearT0 - i * ANIM_DOT_STAGGER_MS;
+      const p = Math.max(0, Math.min(1, localT / ANIM_DOT_FADEIN_MS));
+      // Ease-out quad
+      const eased = 1 - (1 - p) * (1 - p);
+      alpha = eased;
+      scale = 0.6 + 0.4 * eased;       // 0.6 → 1.0
+      if (alpha <= 0) continue;
+    }
+    const cx = d.x * cellPx + cellPx / 2;
+    const cy = d.y * cellPx + cellPx / 2;
+    const half = (cellPx - 4) / 2 * scale;
+    ctx.globalAlpha = alpha;
+    ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
   }
+  ctx.globalAlpha = 1;
 
   // DEBUG: light-grey centroid hint before validate. Painted under guess
   // so the orange/red guess marker stays the visually dominant cell.
@@ -534,26 +610,74 @@ function draw() {
     ctx.fillRect(S.guess.x * cellPx + 2, S.guess.y * cellPx + 2, cellPx - 4, cellPx - 4);
   }
 
-  // Result vectors + optimal
+  // Result vectors + optimal — animated reveal over ANIM_VALIDATE_MS:
+  // vector lines draw progressively from each dot toward the centroid,
+  // then the centroid square fades in.
   if (S.showResult && S.optimal) {
     const opt = S.optimal;
+    const optCx = opt.x * cellPx + cellPx / 2;
+    const optCy = opt.y * cellPx + cellPx / 2;
+    let lineProgress = 1, centroidAlpha = 1;
+    if (S.validateAnimT0) {
+      const t = now - S.validateAnimT0;
+      // Lines: 0 → 100% over the first 60% of the budget
+      lineProgress = Math.max(0, Math.min(1, t / (ANIM_VALIDATE_MS * 0.6)));
+      // Ease-out so growth feels decelerating
+      lineProgress = 1 - (1 - lineProgress) * (1 - lineProgress);
+      // Centroid: starts fading in at 50%, complete by end
+      const cT = (t - ANIM_VALIDATE_MS * 0.5) / (ANIM_VALIDATE_MS * 0.5);
+      centroidAlpha = Math.max(0, Math.min(1, cT));
+    }
     ctx.strokeStyle = COLORS.vector;
     ctx.lineWidth = 1.5;
     for (const d of S.dots) {
+      const dx = d.x * cellPx + cellPx / 2;
+      const dy = d.y * cellPx + cellPx / 2;
+      const ex = dx + (optCx - dx) * lineProgress;
+      const ey = dy + (optCy - dy) * lineProgress;
       ctx.beginPath();
-      ctx.moveTo(d.x * cellPx + cellPx / 2, d.y * cellPx + cellPx / 2);
-      ctx.lineTo(opt.x * cellPx + cellPx / 2, opt.y * cellPx + cellPx / 2);
+      ctx.moveTo(dx, dy);
+      ctx.lineTo(ex, ey);
       ctx.stroke();
     }
-    ctx.fillStyle = COLORS.optimal;
-    ctx.fillRect(opt.x * cellPx + 2, opt.y * cellPx + 2, cellPx - 4, cellPx - 4);
+    if (centroidAlpha > 0) {
+      ctx.globalAlpha = centroidAlpha;
+      ctx.fillStyle = COLORS.optimal;
+      ctx.fillRect(opt.x * cellPx + 2, opt.y * cellPx + 2, cellPx - 4, cellPx - 4);
+      ctx.globalAlpha = 1;
+    }
   }
+
+  // Tap ripple — cyan ring expanding from tap point. Drawn last so it sits
+  // above dots/grid. Two variants: regular (cyan) and spotless (gold, larger).
+  drawRipple(now, S.tapRipple,      ANIM_TAP_RIPPLE_MS,      30, '#00d4ff');
+  drawRipple(now, S.spotlessRipple, ANIM_SPOTLESS_RIPPLE_MS, 45, '#ffd166');
 
   // Downtime dim
   if (S.phase === 'downtime') {
     ctx.fillStyle = COLORS.dim;
     ctx.fillRect(0, 0, boardPx, boardPx);
   }
+}
+
+function drawRipple(now, ripple, duration, maxRadius, color) {
+  if (!ripple) return;
+  const t = (now - ripple.t0) / duration;
+  if (t < 0 || t >= 1) return;
+  const cx = ripple.x * cellPx + cellPx / 2;
+  const cy = ripple.y * cellPx + cellPx / 2;
+  // Ease-out: radius grows fast then settles
+  const eased = 1 - (1 - t) * (1 - t);
+  const r = eased * maxRadius;
+  const alpha = (1 - t) * 0.7;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // ── Pointer interaction ──────────────────────────────────────────────────
@@ -590,7 +714,9 @@ dom.canvas.addEventListener('pointerdown', (e) => {
   // Place + commit in one motion. Brief delay so the orange marker
   // registers visually before the validate flash.
   S.guess = cell;
+  S.tapRipple = { x: cell.x, y: cell.y, t0: performance.now() };
   updateUI(); draw();
+  ensureAnimLoop();
   schedule(validate, COMMIT_DELAY_MS);
 });
 
@@ -627,7 +753,11 @@ function startRound(nr) {
 
   renderPotentialDots();                     // reset the 10 dots for this round
   startHalo();                               // 3s shrinking ring
+  S.dotsAppearT0 = performance.now();        // round-start dot stagger fade-in
+  S.tapRipple = null;
+  S.spotlessRipple = null;
   updateUI(); draw();
+  ensureAnimLoop();
 }
 
 function validate() {
@@ -641,9 +771,13 @@ function validate() {
   const perfectAim   = dist === 0;                      // landed on the centroid
   const spotless     = deductions === 0;                // full 10/10, no time penalty either
 
-  S.showResult  = true;
-  S.phase       = 'downtime';
-  S.totalScore += roundPoints;
+  S.showResult     = true;
+  S.phase          = 'downtime';
+  S.totalScore    += roundPoints;
+  S.validateAnimT0 = performance.now();    // drives vector line + centroid reveal
+  if (spotless) {
+    S.spotlessRipple = { x: S.guess.x, y: S.guess.y, t0: S.validateAnimT0 };
+  }
   S.history.push({
     round: S.round,
     roundPoints,
@@ -653,10 +787,17 @@ function validate() {
     perfect: perfectAim,
   });
 
-  // Flash: "−X" (points lost) or "✨ +10 ✨" for a spotless round.
+  // Flash: "−X" (points lost) or "✨ +10 ✨" for a spotless round. Anchored
+  // at the guess cell, floats up + fades over 600ms.
   dom.ptsFlash.classList.toggle('gain', spotless);
   dom.ptsFlash.textContent = spotless ? '✨ +10 ✨' : `−${deductions}`;
+  dom.ptsFlash.style.left = `${(S.guess.x + 0.5) * cellPx}px`;
+  dom.ptsFlash.style.top  = `${S.guess.y * cellPx - 8}px`;
+  dom.ptsFlash.classList.remove('rising');
+  void dom.ptsFlash.offsetWidth;            // restart animation
+  dom.ptsFlash.classList.add('rising');
   dom.ptsFlash.hidden = false;
+  ensureAnimLoop();
 
   // Streak: spotless extends, anything else breaks it.
   if (spotless) S.perfectStreak++;
@@ -1067,7 +1208,7 @@ function showRecap() {
     dom.recapHist.appendChild(col);
   });
 
-  dom.recapModal.hidden = false;
+  openModal(dom.recapModal);
   updateUI();
 }
 
@@ -1212,7 +1353,7 @@ dom.btnReset.addEventListener('click', () => {
 });
 
 dom.btnPlayAgain.addEventListener('click', () => {
-  dom.recapModal.hidden = true;
+  closeModal(dom.recapModal);
   // Play Again is a fresh start — clear any active seed so the next run is
   // either random, or whatever the user re-stages from the "+" panel.
   pendingSeed = null;
@@ -1310,13 +1451,13 @@ function renderAchievementsModal() {
 }
 function openAchievementsModal() {
   renderAchievementsModal();
-  dom.achModal.hidden = false;
+  openModal(dom.achModal);
 }
 dom.btnViewAch.addEventListener('click', openAchievementsModal);
 dom.btnViewAchIdle.addEventListener('click', openAchievementsModal);
 dom.achModal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    dom.achModal.hidden = true;
+    closeModal(dom.achModal);
   }
 });
 
@@ -1366,7 +1507,7 @@ function openRunModal(idx) {
     dom.runModalCopy.hidden = true;
     dom.runModalReplay.hidden = true;
   }
-  dom.runModal.hidden = false;
+  openModal(dom.runModal);
 }
 dom.recapHistory.addEventListener('click', (e) => {
   const btn = e.target instanceof HTMLElement ? e.target.closest('.run-link') : null;
@@ -1375,7 +1516,7 @@ dom.recapHistory.addEventListener('click', (e) => {
 });
 dom.runModal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    dom.runModal.hidden = true;
+    closeModal(dom.runModal);
   }
 });
 dom.runModalCopy.addEventListener('click', async () => {
@@ -1393,8 +1534,8 @@ dom.runModalReplay.addEventListener('click', () => {
   // Stage as foreign — when replayed, the new run will record attempt > 1
   // and tag "Replay #N" anyway, so origin matters less here.
   setActiveSeed(seed, 'foreign');
-  dom.runModal.hidden = true;
-  dom.recapModal.hidden = true;
+  closeModal(dom.runModal);
+  closeModal(dom.recapModal);
   hardReset();
   hideBoard();
   updateUI();
@@ -1919,13 +2060,13 @@ tDom.minus.addEventListener('click', () => {
 });
 
 $('btn-tutorial').addEventListener('click', () => {
-  tDom.modal.hidden = false;
+  openModal(tDom.modal);
   // Size after layout — modal needs to be visible for clientWidth to be real.
   requestAnimationFrame(() => { tutorialSize(); tutorialUpdate(); });
 });
 tDom.modal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    tDom.modal.hidden = true;
+    closeModal(tDom.modal);
     tutorialSelect(-1);
     if (demoState.playing) demoStop();    // closing while demo plays kills it
   }
