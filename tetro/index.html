@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KikaCentroid · Tetro</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // Hidden mode entry point. /tetro redirects to /?mode=tetro so the main
+  // game.js can detect and enter tetro mode without maintaining a second
+  // copy of index.html. The original /tetro URL stays as the shareable
+  // entry; the user lands at /?mode=tetro after one redirect.
+  var url = new URL('../', location.href);
+  url.searchParams.set('mode', 'tetro');
+  if (location.hash) url.hash = location.hash;
+  location.replace(url.toString());
+</script>
+</head>
+<body><noscript>Enable JavaScript to play KikaCentroid.</noscript></body>
+</html>

@@ -231,6 +231,79 @@ try { localStorage.removeItem('kc-oneshot-on'); } catch (_) {}
 // validate, so tier behavior can be exercised without grinding skill.
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 
+// Hidden Tetro mode (?mode=tetro, also reachable via /tetro/ which
+// redirects here). Replaces the dot-cluster generator with one that
+// places whole tetrominoes; centroid math is unchanged. Seeds, replays,
+// achievements all carry over.
+const TETRO_MODE = new URLSearchParams(location.search).get('mode') === 'tetro';
+
+// All 7 standard tetrominoes as arrays of cell-offset rotations. Each
+// rotation is a list of [dx, dy] from a (0,0) origin. Rotations omit
+// duplicates (O has 1, I and S/Z have 2, T/L/J have 4).
+const TETROMINOES = [
+  // I
+  [[[0,0],[1,0],[2,0],[3,0]], [[0,0],[0,1],[0,2],[0,3]]],
+  // O
+  [[[0,0],[1,0],[0,1],[1,1]]],
+  // T
+  [[[0,0],[1,0],[2,0],[1,1]], [[1,0],[0,1],[1,1],[1,2]],
+   [[1,0],[0,1],[1,1],[2,1]], [[0,0],[0,1],[1,1],[0,2]]],
+  // S
+  [[[1,0],[2,0],[0,1],[1,1]], [[0,0],[0,1],[1,1],[1,2]]],
+  // Z
+  [[[0,0],[1,0],[1,1],[2,1]], [[1,0],[0,1],[1,1],[0,2]]],
+  // L
+  [[[0,0],[0,1],[0,2],[1,2]], [[0,0],[1,0],[2,0],[0,1]],
+   [[0,0],[1,0],[1,1],[1,2]], [[2,0],[0,1],[1,1],[2,1]]],
+  // J
+  [[[1,0],[1,1],[0,2],[1,2]], [[0,0],[0,1],[1,1],[2,1]],
+   [[0,0],[1,0],[0,1],[0,2]], [[0,0],[1,0],[2,0],[2,1]]],
+];
+
+// Tetro mode: pick `pieces` random tetrominoes (rng-driven so seeded runs
+// reproduce), place each at a random non-overlapping origin. Returns a
+// flat list of 4*pieces dot positions. Difficulty maps to piece count.
+function generateTetrominoDots(pieces) {
+  const dots = [], used = new Set();
+  let placed = 0;
+  let safety = 80;                       // bounded retries; abandons gracefully
+  while (placed < pieces && safety-- > 0) {
+    const piece = TETROMINOES[Math.floor(rng() * TETROMINOES.length)];
+    const rot   = piece[Math.floor(rng() * piece.length)];
+    // Bounding box of this rotation
+    let maxX = 0, maxY = 0;
+    for (const [dx, dy] of rot) {
+      if (dx > maxX) maxX = dx;
+      if (dy > maxY) maxY = dy;
+    }
+    const ox = Math.floor(rng() * (GRID - maxX));
+    const oy = Math.floor(rng() * (GRID - maxY));
+    // Overlap check — bail on this attempt if any cell collides
+    let collision = false;
+    for (const [dx, dy] of rot) {
+      const k = `${ox + dx},${oy + dy}`;
+      if (used.has(k)) { collision = true; break; }
+    }
+    if (collision) continue;
+    // Commit
+    for (const [dx, dy] of rot) {
+      const x = ox + dx, y = oy + dy;
+      used.add(`${x},${y}`);
+      dots.push({ x, y });
+    }
+    placed++;
+  }
+  return dots;
+}
+
+// Map difficulty → piece count. EASY/MEDIUM/HARD levels translate to 1-3
+// tetrominoes, with the dot count being 4× pieces. Hard mode amplifies
+// piece count by +1 across the board.
+function tetroPieceCount(round) {
+  const base = round <= 3 ? 1 : round <= 7 ? 2 : 3;
+  return Math.min(4, base + (hardMode ? 1 : 0));
+}
+
 const schedule = (fn, ms) => {
   const id = setTimeout(fn, ms);
   timeouts.push(id);
@@ -727,7 +800,11 @@ function startRound(nr) {
   // point, not the dot count. RNG draws happen unconditionally so seeded
   // runs stay consistent regardless of which round was chosen.
   const n    = diff.min + Math.floor(rng() * (diff.max - diff.min + 1));
-  const dots = (nr === S.longShotRound) ? generateLongShotDots()
+  // Tetro mode replaces dot-cluster generation entirely with tetromino
+  // placement. Long-shot bias and HARD-mode skew don't apply in tetro;
+  // the geometry of placed tetrominoes provides its own variety.
+  const dots = TETRO_MODE                ? generateTetrominoDots(tetroPieceCount(nr))
+             : (nr === S.longShotRound)  ? generateLongShotDots()
              : hardMode                  ? generateSkewedDots(n)
              :                             generateUniformDots(n);
   const c    = centroid(dots);
@@ -1367,11 +1444,17 @@ dom.btnPlayAgain.addEventListener('click', () => {
   updateUI();
 });
 
+function buildChallengeUrl(seed) {
+  // Preserve mode=tetro on challenge-share links so recipients land in the
+  // same variant. Other query params are dropped — keep the share URL
+  // minimal and predictable.
+  const q = TETRO_MODE ? '?mode=tetro' : '';
+  return `${location.origin}${location.pathname}${q}#s=${seed}`;
+}
 dom.btnCopyChallenge.addEventListener('click', async () => {
   if (!S.seed) return;
-  const url = `${location.origin}${location.pathname}#s=${S.seed}`;
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(buildChallengeUrl(S.seed));
     flashTbtn(dom.btnCopyChallenge, 'Copied!');
   } catch (_) { /* clipboard blocked */ }
 });
@@ -1522,7 +1605,7 @@ dom.runModal.addEventListener('click', (e) => {
 dom.runModalCopy.addEventListener('click', async () => {
   const seed = dom.runModalCopy.dataset.seed;
   if (!seed) return;
-  const url = `${location.origin}${location.pathname}#s=${seed}`;
+  const url = buildChallengeUrl(seed);
   try {
     await navigator.clipboard.writeText(url);
     flashTbtn(dom.runModalCopy, 'Copied!');
@@ -1628,6 +1711,13 @@ dom.hardToggle.addEventListener('click', () => {
   syncHardToggle();
 });
 syncHardToggle();
+
+// Tetro mode badge — toolbar indicator only. The TETRO_MODE constant
+// drives all game logic branches elsewhere.
+if (TETRO_MODE) {
+  const badge = $('mode-badge');
+  if (badge) badge.hidden = false;
+}
 
 // ── Seed panel ───────────────────────────────────────────────────────────
 // Rotate the seed input's placeholder through fresh random samples so the
