@@ -261,47 +261,67 @@ const TETROMINOES = [
 ];
 
 // Tetro mode: pick `pieces` random tetrominoes (rng-driven so seeded runs
-// reproduce), place each at a random non-overlapping origin. Returns a
-// flat list of 4*pieces dot positions. Difficulty maps to piece count.
+// reproduce), place each at a non-overlapping origin. Returns a flat list
+// of 4*pieces dot positions. Two-pass placement: first pass requires a
+// 1-cell gap between pieces (each tetromino reads as a clear island);
+// second pass relaxes to plain no-overlap if the gap rule is too tight
+// for the piece count. Strict no-overlap is always preserved.
 function generateTetrominoDots(pieces) {
   const dots = [], used = new Set();
-  let placed = 0;
-  let safety = 80;                       // bounded retries; abandons gracefully
-  while (placed < pieces && safety-- > 0) {
-    const piece = TETROMINOES[Math.floor(rng() * TETROMINOES.length)];
-    const rot   = piece[Math.floor(rng() * piece.length)];
-    // Bounding box of this rotation
-    let maxX = 0, maxY = 0;
-    for (const [dx, dy] of rot) {
-      if (dx > maxX) maxX = dx;
-      if (dy > maxY) maxY = dy;
-    }
-    const ox = Math.floor(rng() * (GRID - maxX));
-    const oy = Math.floor(rng() * (GRID - maxY));
-    // Overlap check — bail on this attempt if any cell collides
-    let collision = false;
-    for (const [dx, dy] of rot) {
-      const k = `${ox + dx},${oy + dy}`;
-      if (used.has(k)) { collision = true; break; }
-    }
-    if (collision) continue;
-    // Commit
+
+  const conflicts = (rot, ox, oy, requireGap) => {
     for (const [dx, dy] of rot) {
       const x = ox + dx, y = oy + dy;
-      used.add(`${x},${y}`);
-      dots.push({ x, y });
+      if (requireGap) {
+        for (let ay = -1; ay <= 1; ay++) {
+          for (let ax = -1; ax <= 1; ax++) {
+            if (used.has(`${x + ax},${y + ay}`)) return true;
+          }
+        }
+      } else if (used.has(`${x},${y}`)) {
+        return true;
+      }
     }
-    placed++;
+    return false;
+  };
+
+  const tryPlace = (requireGap, attempts) => {
+    for (let i = 0; i < attempts; i++) {
+      const piece = TETROMINOES[Math.floor(rng() * TETROMINOES.length)];
+      const rot   = piece[Math.floor(rng() * piece.length)];
+      let maxX = 0, maxY = 0;
+      for (const [dx, dy] of rot) {
+        if (dx > maxX) maxX = dx;
+        if (dy > maxY) maxY = dy;
+      }
+      const ox = Math.floor(rng() * (GRID - maxX));
+      const oy = Math.floor(rng() * (GRID - maxY));
+      if (conflicts(rot, ox, oy, requireGap)) continue;
+      for (const [dx, dy] of rot) {
+        const x = ox + dx, y = oy + dy;
+        used.add(`${x},${y}`);
+        dots.push({ x, y });
+      }
+      return true;
+    }
+    return false;
+  };
+
+  for (let p = 0; p < pieces; p++) {
+    // First try with the gap rule for visual separation, then fall back
+    // to plain no-overlap if too tight.
+    if (!tryPlace(true, 60) && !tryPlace(false, 60)) {
+      // Couldn't place this piece — extremely rare. Skip to next.
+    }
   }
   return dots;
 }
 
-// Map difficulty → piece count. EASY/MEDIUM/HARD levels translate to 1-3
-// tetrominoes, with the dot count being 4× pieces. Hard mode amplifies
-// piece count by +1 across the board.
+// Map difficulty → piece count. Tetro is now strictly multi-piece — the
+// minimum is 2 even on round 1. HARD mode adds +1 across the board.
 function tetroPieceCount(round) {
-  const base = round <= 3 ? 1 : round <= 7 ? 2 : 3;
-  return Math.min(4, base + (hardMode ? 1 : 0));
+  const base = round <= 3 ? 2 : round <= 7 ? 3 : 4;
+  return Math.min(5, base + (hardMode ? 1 : 0));
 }
 
 const schedule = (fn, ms) => {
