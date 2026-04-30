@@ -864,12 +864,13 @@ function validate() {
     perfect: perfectAim,
   });
 
-  // Flash: "−X" (points lost) or "+10" for a spotless round. Anchored at
-  // the guess cell, floats up + fades over 600ms. The .gain variant adds
-  // a small radial halo (perfect-overlay-mini) behind the text — a
-  // localized cousin of the full-screen perfect-run effect.
+  // Flash: "−X" (points lost) or "Perfect" boxed (spotless round).
+  // Anchored at the guess cell, floats up + fades over 600ms. The .gain
+  // variant is a localized cousin of the full-screen perfect-run overlay —
+  // same indigo palette as the 100-score (.s-100), boxed with a border
+  // and radial halo behind it.
   dom.ptsFlash.classList.toggle('gain', spotless);
-  dom.ptsFlash.textContent = spotless ? '+10' : `−${deductions}`;
+  dom.ptsFlash.textContent = spotless ? 'Perfect' : `−${deductions}`;
   dom.ptsFlash.style.left = `${(S.guess.x + 0.5) * cellPx}px`;
   dom.ptsFlash.style.top  = `${S.guess.y * cellPx - 8}px`;
   dom.ptsFlash.classList.remove('rising');
