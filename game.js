@@ -134,6 +134,7 @@ function mkState() {
     seedOrigin:  'random',        // 'random' | 'self' | 'foreign'
     seedAttempt: 0,               // device's Nth play of this seed (0 if no seed)
     longShotRound: 0,             // round nr that gets the long-shot puzzle
+    newAchievements: [],          // tier numbers unlocked for the FIRST time this run
   };
 }
 
@@ -142,8 +143,8 @@ function mkState() {
 // + recap title transformation.
 const HYPE_TIERS = [
   null, null,
-  { label: 'Duo!' },
-  { label: 'Triple!' },
+  { label: 'Daburu!' },
+  { label: 'Toripuru!' },
   { label: '四連続!' },
   { label: 'ペンタキル!' },
   { label: 'Sex-tuple!' },
@@ -432,6 +433,7 @@ const dom = {
   recapSeedVal:  $('recap-seed-val'),
   recapSeedTag:  $('recap-seed-tag'),
   btnCopyChallenge: $('btn-copy-challenge'),
+  recapAch:      $('recap-ach'),
   runModal:      $('run-modal'),
   runModalTitle: $('run-modal-title'),
   runModalScore: $('run-modal-score'),
@@ -576,6 +578,7 @@ dom.canvas.addEventListener('pointerleave', () => {
 });
 dom.canvas.addEventListener('pointerdown', (e) => {
   if (S.phase !== 'playing' || S.showResult) return;
+  if (S.guess) return;          // already committed this round; ignore extra taps
   const cell = cellAt(e);
   if (!cell) return;
   e.preventDefault();
@@ -706,6 +709,10 @@ function showStreakCallout(tier) {
     dom.perfectOverlay.hidden = false;
     schedule(() => { dom.perfectOverlay.hidden = true; }, 2800);
   }
+
+  // Persist this tier as an achievement (idempotent — repeat tiers don't
+  // re-fire). If it was new, flag it for the recap to highlight.
+  if (unlockAchievement(tier)) S.newAchievements.push(tier);
 }
 
 // ── Potential-points tracker ─────────────────────────────────────────────
@@ -751,6 +758,15 @@ function begin() {
   }
   S.seedAttempt = bumpReplay(S.seed);
   setRng(S.seed);
+
+  // Consume the staged seed. Without this, an abandon → idle → START path
+  // would silently re-use the same seed even though the user didn't
+  // re-stage it. Play Again has its own clearing logic and stays the path
+  // for "fresh start with placeholder rotation"; here we just clear the
+  // module vars so the next implicit begin() auto-generates.
+  pendingSeed = null;
+  pendingSeedOrigin = 'random';
+  refreshSeedPanel();
 
   // Pick the long-shot round AFTER setting the RNG — so seeded runs get the
   // same surprise round as anyone else with that seed.
@@ -830,6 +846,46 @@ function readHistory() {
   catch (_) { return []; }
 }
 
+function renderAchievements() {
+  const map = readAchievements();
+  const newSet = new Set(S.newAchievements);
+  const html = [];
+  // Iterate tiers 2..MAX_ROUNDS — HYPE_TIERS uses index = tier number.
+  for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
+    const cfg = HYPE_TIERS[tier];
+    if (!cfg) continue;
+    const isUnlocked = !!(map[`tier_${tier}`] && map[`tier_${tier}`].unlocked);
+    const isNew = newSet.has(tier);
+    const cls = [
+      'ach-pill', `ach-tier-${tier}`,
+      isUnlocked ? 'is-unlocked' : 'is-locked',
+      isNew      ? 'is-new'      : '',
+    ].filter(Boolean).join(' ');
+    const newBadge = isNew ? ' <em>NEW!</em>' : '';
+    html.push(`<span class="${cls}">${cfg.label}${newBadge}</span>`);
+  }
+  dom.recapAch.innerHTML = html.join('');
+}
+
+// ── Achievements ─────────────────────────────────────────────────────────
+// One per X-in-a-row hype tier (2-9) plus PERFECT (10). Unlocked the first
+// time the user hits that streak in a single run; same trigger as the
+// callout fires on. Storage is keyed by tier *number* — names live in
+// HYPE_TIERS so renaming a tier doesn't break stored unlocks.
+const ACHIEVEMENTS_KEY = 'kc-achievements';
+function readAchievements() {
+  try { return JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || '{}'); }
+  catch (_) { return {}; }
+}
+function unlockAchievement(tier) {
+  const map = readAchievements();
+  const key = `tier_${tier}`;
+  if (map[key] && map[key].unlocked) return false;     // already had it
+  map[key] = { unlocked: true, ts: Date.now(), runSeed: S.seed || null };
+  try { localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(map)); } catch (_) {}
+  return true;                                          // newly unlocked
+}
+
 function renderRunHistory(history) {
   const el = dom.recapHistory;
   if (!history || !history.length) {
@@ -876,6 +932,7 @@ function showRecap() {
   // Append this run to recent-history and render the sparkline.
   const recent = pushRunHistory(total, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
   renderRunHistory(recent);
+  renderAchievements();
   const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
   const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
   const perf  = h.filter(r => r.perfect).length;
@@ -992,9 +1049,14 @@ const RESET_OVERLAY_MS = 1200;
 function abandonRun() {
   disarmReset();
   dom.resetOverlay.hidden = false;
-  setTimeout(() => {
+  // Snapshot seed metadata BEFORE the timer fires. If a new run begins
+  // before the overlay clears (rare, but a backgrounded-then-resumed tab
+  // can race), hardReset()'s clearScheduled() will cancel this scheduled
+  // call so we don't pollute the next run's seed with a phantom 0.
+  const snap = { seed: S.seed, attempt: S.seedAttempt, origin: S.seedOrigin };
+  schedule(() => {
     dom.resetOverlay.hidden = true;
-    pushRunHistory(0, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
+    pushRunHistory(0, hardMode, snap.seed, snap.attempt, snap.origin);
     hardReset();
     hideBoard();
     updateUI();
@@ -1449,8 +1511,17 @@ if ('serviceWorker' in navigator) {
         location.reload();
       });
 
-      // Periodically check for updates (every 30 min while the tab is open).
-      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+      // Periodically check for updates while the tab is visible. Background
+      // tabs skip the check (browser timer throttling makes it noisy and
+      // there's no point updating a tab the user isn't looking at). Also
+      // run an immediate check when the user returns to the tab so they
+      // don't have to wait up to 30min for the next interval.
+      const checkForUpdate = () => {
+        if (document.visibilityState !== 'visible') return;
+        reg.update().catch(() => {});
+      };
+      setInterval(checkForUpdate, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', checkForUpdate);
     } catch (err) {
       console.warn('[KikaCentroid] SW registration failed', err);
     }
@@ -1518,14 +1589,27 @@ const DEMO_SCENES = [
 ];
 const demoState = { playing: false, raf: 0, sceneIdx: 0, sceneStart: 0 };
 const easeInOut = (t) => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
-const tCanvas = document.getElementById('tutorial-canvas');
+// Tutorial DOM refs cached once at module top — the tutorialUpdate path
+// runs inside the demo's 60fps RAF loop; raw getElementById per-frame is
+// wasteful and the abstraction is just architecturally cleaner.
+const tDom = {
+  canvas:    $('tutorial-canvas'),
+  count:     $('tutorial-count'),
+  minus:     $('tutorial-minus'),
+  plus:      $('tutorial-plus'),
+  math:      $('tutorial-math'),
+  modal:     $('tutorial-modal'),
+  demoBtn:   $('tutorial-demo'),
+  hint:      document.querySelector('.tutorial-hint'),
+  wrap:      document.querySelector('.tutorial-canvas-wrap'),
+};
+const tCanvas = tDom.canvas;
 const tCtx    = tCanvas.getContext('2d');
 
 function tutorialSize() {
   // Fit the canvas inside the modal card width (with breathing room).
-  const wrap = document.querySelector('.tutorial-canvas-wrap');
-  if (!wrap || !wrap.clientWidth) return;
-  const avail = Math.min(wrap.clientWidth, 340);
+  if (!tDom.wrap || !tDom.wrap.clientWidth) return;
+  const avail = Math.min(tDom.wrap.clientWidth, 340);
   const cell  = Math.max(16, Math.floor(avail / T_GRID));
   const px    = cell * T_GRID;
   tutorial.cellPx = cell;
@@ -1603,10 +1687,10 @@ function tutorialMathHTML() {
 }
 
 function tutorialUpdate() {
-  document.getElementById('tutorial-count').textContent = String(tutorial.dots.length);
-  document.getElementById('tutorial-minus').disabled = tutorial.dots.length <= T_MIN_DOTS;
-  document.getElementById('tutorial-plus').disabled  = tutorial.dots.length >= T_MAX_DOTS;
-  document.getElementById('tutorial-math').innerHTML = tutorialMathHTML();
+  tDom.count.textContent = String(tutorial.dots.length);
+  tDom.minus.disabled = tutorial.dots.length <= T_MIN_DOTS;
+  tDom.plus.disabled  = tutorial.dots.length >= T_MAX_DOTS;
+  tDom.math.innerHTML = tutorialMathHTML();
   tutorialDraw();
 }
 
@@ -1663,7 +1747,7 @@ tCanvas.addEventListener('pointerup',     tutorialEnd);
 tCanvas.addEventListener('pointercancel', tutorialEnd);
 tCanvas.addEventListener('pointerleave',  tutorialEnd);
 
-document.getElementById('tutorial-plus').addEventListener('click', () => {
+tDom.plus.addEventListener('click', () => {
   if (tutorial.dots.length >= T_MAX_DOTS) return;
   // Place a new dot on a free cell — try a few random spots, fall back to scan.
   const used = new Set(tutorial.dots.map(d => `${d.x},${d.y}`));
@@ -1685,46 +1769,43 @@ document.getElementById('tutorial-plus').addEventListener('click', () => {
     tutorialUpdate();
   }
 });
-document.getElementById('tutorial-minus').addEventListener('click', () => {
+tDom.minus.addEventListener('click', () => {
   if (tutorial.dots.length <= T_MIN_DOTS) return;
   tutorial.dots.pop();
   if (tutorial.selectedIdx >= tutorial.dots.length) tutorial.selectedIdx = -1;
   tutorialUpdate();
 });
 
-const tutorialModal = document.getElementById('tutorial-modal');
-document.getElementById('btn-tutorial').addEventListener('click', () => {
-  tutorialModal.hidden = false;
+$('btn-tutorial').addEventListener('click', () => {
+  tDom.modal.hidden = false;
   // Size after layout — modal needs to be visible for clientWidth to be real.
   requestAnimationFrame(() => { tutorialSize(); tutorialUpdate(); });
 });
-tutorialModal.addEventListener('click', (e) => {
+tDom.modal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    tutorialModal.hidden = true;
+    tDom.modal.hidden = true;
     tutorialSelect(-1);
     if (demoState.playing) demoStop();    // closing while demo plays kills it
   }
 });
 
 // ── Tutorial demo (pre-recorded scenes) ──────────────────────────────────
-const demoBtn   = document.getElementById('tutorial-demo');
-const tHintEl   = document.querySelector('.tutorial-hint');
 let tHintHTMLOriginal = null;
 
 function demoSetCaption(text) {
-  if (tHintHTMLOriginal === null) tHintHTMLOriginal = tHintEl.innerHTML;
-  tHintEl.classList.add('is-demo');
-  tHintEl.textContent = text;
+  if (tHintHTMLOriginal === null) tHintHTMLOriginal = tDom.hint.innerHTML;
+  tDom.hint.classList.add('is-demo');
+  tDom.hint.textContent = text;
 }
 function demoRestoreHint() {
-  tHintEl.classList.remove('is-demo');
-  if (tHintHTMLOriginal !== null) tHintEl.innerHTML = tHintHTMLOriginal;
+  tDom.hint.classList.remove('is-demo');
+  if (tHintHTMLOriginal !== null) tDom.hint.innerHTML = tHintHTMLOriginal;
 }
 function demoSetUI(playing) {
-  demoBtn.classList.toggle('is-playing', playing);
-  demoBtn.textContent = playing ? '■ Stop' : '▶ Play Demo';
-  document.getElementById('tutorial-plus').disabled  = playing || tutorial.dots.length >= T_MAX_DOTS;
-  document.getElementById('tutorial-minus').disabled = playing || tutorial.dots.length <= T_MIN_DOTS;
+  tDom.demoBtn.classList.toggle('is-playing', playing);
+  tDom.demoBtn.textContent = playing ? '■ Stop' : '▶ Play Demo';
+  tDom.plus.disabled  = playing || tutorial.dots.length >= T_MAX_DOTS;
+  tDom.minus.disabled = playing || tutorial.dots.length <= T_MIN_DOTS;
 }
 function demoLoadScene(idx, now) {
   const scene = DEMO_SCENES[idx];
@@ -1772,7 +1853,7 @@ function demoStop() {
   demoRestoreHint();
   tutorialUpdate();
 }
-demoBtn.addEventListener('click', () => {
+tDom.demoBtn.addEventListener('click', () => {
   if (demoState.playing) demoStop();
   else                   demoStart();
 });
