@@ -753,6 +753,15 @@ function begin() {
   S.seedAttempt = bumpReplay(S.seed);
   setRng(S.seed);
 
+  // Consume the staged seed. Without this, an abandon → idle → START path
+  // would silently re-use the same seed even though the user didn't
+  // re-stage it. Play Again has its own clearing logic and stays the path
+  // for "fresh start with placeholder rotation"; here we just clear the
+  // module vars so the next implicit begin() auto-generates.
+  pendingSeed = null;
+  pendingSeedOrigin = 'random';
+  refreshSeedPanel();
+
   // Pick the long-shot round AFTER setting the RNG — so seeded runs get the
   // same surprise round as anyone else with that seed.
   S.longShotRound = 1 + Math.floor(rng() * MAX_ROUNDS);
@@ -1455,8 +1464,17 @@ if ('serviceWorker' in navigator) {
         location.reload();
       });
 
-      // Periodically check for updates (every 30 min while the tab is open).
-      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+      // Periodically check for updates while the tab is visible. Background
+      // tabs skip the check (browser timer throttling makes it noisy and
+      // there's no point updating a tab the user isn't looking at). Also
+      // run an immediate check when the user returns to the tab so they
+      // don't have to wait up to 30min for the next interval.
+      const checkForUpdate = () => {
+        if (document.visibilityState !== 'visible') return;
+        reg.update().catch(() => {});
+      };
+      setInterval(checkForUpdate, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', checkForUpdate);
     } catch (err) {
       console.warn('[KikaCentroid] SW registration failed', err);
     }

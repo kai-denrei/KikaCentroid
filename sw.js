@@ -5,7 +5,7 @@
 // install a fresh cache, the page will get an "update available" toast, and
 // old caches are evicted on activate.
 // Also bump the user-visible label in index.html (#app-version) to match.
-const CACHE_VERSION = 'v1.43';
+const CACHE_VERSION = 'v1.44';
 const PRECACHE = `kc-precache-${CACHE_VERSION}`;
 const RUNTIME  = `kc-runtime-${CACHE_VERSION}`;
 
@@ -108,15 +108,24 @@ async function navigationHandler(event) {
   try {
     const preload = event.preloadResponse ? await event.preloadResponse : null;
     const network = preload || await timeout(fetch(event.request), 3000);
-    if (network && network.ok) {
+    if (network && network.ok && network.type === 'basic') {
       // Mirror successful navigations into the precache so subsequent offline
-      // hits return the freshest shell we've actually seen.
-      cache.put('./index.html', network.clone()).catch(() => {});
+      // hits return the freshest shell we've actually seen. Store under the
+      // actual request URL (e.g. `./?src=pwa` from start_url) AND under
+      // `./index.html` so the offline-fallback chain below works regardless
+      // of which URL the user navigated to.
+      cache.put(event.request, network.clone()).catch(() => {});
+      const indexHref = new URL('./index.html', self.location).href;
+      if (event.request.url !== indexHref) {
+        cache.put('./index.html', network.clone()).catch(() => {});
+      }
       return network;
     }
     throw new Error('navigation network response not ok');
   } catch (_) {
-    const cached = await cache.match('./index.html') || await cache.match('./');
+    const cached = await cache.match(event.request)
+                || await cache.match('./index.html')
+                || await cache.match('./');
     if (cached) return cached;
     return cache.match('./offline.html');
   }
