@@ -134,6 +134,7 @@ function mkState() {
     seedOrigin:  'random',        // 'random' | 'self' | 'foreign'
     seedAttempt: 0,               // device's Nth play of this seed (0 if no seed)
     longShotRound: 0,             // round nr that gets the long-shot puzzle
+    newAchievements: [],          // tier numbers unlocked for the FIRST time this run
   };
 }
 
@@ -432,6 +433,7 @@ const dom = {
   recapSeedVal:  $('recap-seed-val'),
   recapSeedTag:  $('recap-seed-tag'),
   btnCopyChallenge: $('btn-copy-challenge'),
+  recapAch:      $('recap-ach'),
   runModal:      $('run-modal'),
   runModalTitle: $('run-modal-title'),
   runModalScore: $('run-modal-score'),
@@ -707,6 +709,10 @@ function showStreakCallout(tier) {
     dom.perfectOverlay.hidden = false;
     schedule(() => { dom.perfectOverlay.hidden = true; }, 2800);
   }
+
+  // Persist this tier as an achievement (idempotent — repeat tiers don't
+  // re-fire). If it was new, flag it for the recap to highlight.
+  if (unlockAchievement(tier)) S.newAchievements.push(tier);
 }
 
 // ── Potential-points tracker ─────────────────────────────────────────────
@@ -840,6 +846,46 @@ function readHistory() {
   catch (_) { return []; }
 }
 
+function renderAchievements() {
+  const map = readAchievements();
+  const newSet = new Set(S.newAchievements);
+  const html = [];
+  // Iterate tiers 2..MAX_ROUNDS — HYPE_TIERS uses index = tier number.
+  for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
+    const cfg = HYPE_TIERS[tier];
+    if (!cfg) continue;
+    const isUnlocked = !!(map[`tier_${tier}`] && map[`tier_${tier}`].unlocked);
+    const isNew = newSet.has(tier);
+    const cls = [
+      'ach-pill', `ach-tier-${tier}`,
+      isUnlocked ? 'is-unlocked' : 'is-locked',
+      isNew      ? 'is-new'      : '',
+    ].filter(Boolean).join(' ');
+    const newBadge = isNew ? ' <em>NEW!</em>' : '';
+    html.push(`<span class="${cls}">${cfg.label}${newBadge}</span>`);
+  }
+  dom.recapAch.innerHTML = html.join('');
+}
+
+// ── Achievements ─────────────────────────────────────────────────────────
+// One per X-in-a-row hype tier (2-9) plus PERFECT (10). Unlocked the first
+// time the user hits that streak in a single run; same trigger as the
+// callout fires on. Storage is keyed by tier *number* — names live in
+// HYPE_TIERS so renaming a tier doesn't break stored unlocks.
+const ACHIEVEMENTS_KEY = 'kc-achievements';
+function readAchievements() {
+  try { return JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || '{}'); }
+  catch (_) { return {}; }
+}
+function unlockAchievement(tier) {
+  const map = readAchievements();
+  const key = `tier_${tier}`;
+  if (map[key] && map[key].unlocked) return false;     // already had it
+  map[key] = { unlocked: true, ts: Date.now(), runSeed: S.seed || null };
+  try { localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(map)); } catch (_) {}
+  return true;                                          // newly unlocked
+}
+
 function renderRunHistory(history) {
   const el = dom.recapHistory;
   if (!history || !history.length) {
@@ -886,6 +932,7 @@ function showRecap() {
   // Append this run to recent-history and render the sparkline.
   const recent = pushRunHistory(total, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
   renderRunHistory(recent);
+  renderAchievements();
   const avg   = h.length ? (h.reduce((s, r) => s + r.roundPoints, 0) / h.length).toFixed(1) : '0.0';
   const avgT  = h.length ? (h.reduce((s, r) => s + r.timer, 0) / h.length).toFixed(1) : '0.0';
   const perf  = h.filter(r => r.perfect).length;
