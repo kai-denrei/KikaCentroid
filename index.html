@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v19</span>
+      <span id="app-version" class="version" aria-label="version">v1.38</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -76,6 +76,7 @@
             aria-label="KikaCentroid game board: tap a cell to place your guess for the cluster centroid"
             role="img"
           ></canvas>
+          <div id="streak-flash" class="streak-flash" hidden aria-live="polite"></div>
           <div id="pts-flash" class="pts-flash" hidden></div>
           <div id="countdown-overlay" class="countdown" hidden>
             <span id="countdown-text" class="countdown-text"></span>
@@ -89,8 +90,8 @@
           Estimate the <strong class="hl-cyan">centroid<sup>*</sup></strong> of the blue squares.
         </p>
         <ol class="idle-steps">
-          <li><strong class="hl-green">TAP</strong> a cell to place your guess</li>
-          <li><strong class="hl-green">VALIDATE</strong> via the button or double-tapping</li>
+          <li><strong class="hl-cyan">TAP</strong> a cell — commits instantly, no take-backs</li>
+          <li><strong class="hl-red">Race the clock</strong> · trust your gut</li>
         </ol>
         <p class="idle-body idle-scoring">
           Each round starts with <strong class="hl-cyan">10 points</strong>.<br>
@@ -106,9 +107,39 @@
             <li><span class="dot dot-red"></span> Your guess</li>
           </ul>
         </div>
+        <details id="seed-panel" class="seed-panel">
+          <summary class="seed-summary">
+            <span class="seed-summary-icon" aria-hidden="true"></span>
+            <span class="seed-summary-label">Challenge seed</span>
+          </summary>
+          <div class="seed-body">
+            <div id="seed-active" class="seed-active" hidden>
+              <span class="seed-active-label">Active</span>
+              <code id="seed-active-val" class="seed-active-val"></code>
+              <span id="seed-active-meta" class="seed-active-meta"></span>
+              <button id="seed-clear" type="button" class="seed-clear" aria-label="Clear seed">×</button>
+            </div>
+            <div class="seed-input-row">
+              <input id="seed-input" type="text" class="seed-input"
+                     placeholder="" autocomplete="off"
+                     spellcheck="false" maxlength="16" aria-label="Seed">
+              <button id="seed-use" type="button" class="seed-btn">Use</button>
+              <button id="seed-random" type="button" class="seed-btn seed-btn-alt">Random</button>
+            </div>
+            <p id="seed-error" class="seed-error" hidden>
+              Format: <code>xxx-yyy-NNN</code> (e.g. <code>aka-sop-921</code>)
+            </p>
+          </div>
+        </details>
+
         <p class="idle-footnote">
           <strong>*A centroid</strong> is the <em>geometric center</em>, or "average position" of all points, within a two-dimensional shape or three-dimensional solid. Often referred to as the <strong class="hl-cyan">center of mass</strong> (for uniform density), it represents the point where lines of symmetry intersect and acts as the <em>center of gravity</em>.
         </p>
+
+        <button id="btn-tutorial" type="button" class="tutorial-btn">
+          <span class="tutorial-btn-icon" aria-hidden="true">▶</span>
+          Watch Tutorial?
+        </button>
       </section>
 
       <button id="action-btn" type="button" class="action-btn" aria-live="polite">
@@ -141,6 +172,13 @@
         <div class="score-label">Total Score</div>
       </div>
 
+      <div id="recap-seed" class="recap-seed" hidden>
+        <span class="recap-seed-label">Seed</span>
+        <code id="recap-seed-val" class="recap-seed-val"></code>
+        <span id="recap-seed-tag" class="recap-seed-tag"></span>
+        <button id="btn-copy-challenge" type="button" class="recap-seed-copy">Copy Challenge Link</button>
+      </div>
+
       <ul class="recap-stats">
         <li>Perfect: <strong id="recap-perfect" class="ok"></strong></li>
         <li>Avg score: <strong id="recap-avg"></strong></li>
@@ -159,6 +197,60 @@
         <button id="btn-play-again" type="button" class="action-btn primary">Play Again</button>
         <button id="btn-share" type="button" class="action-btn">Share</button>
       </div>
+    </div>
+  </div>
+
+  <div id="tutorial-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card tutorial-card" role="dialog" aria-labelledby="tutorial-title" aria-modal="true">
+      <header class="tutorial-header">
+        <h3 id="tutorial-title" class="tutorial-title">Move dots · watch the centroid</h3>
+        <button class="tutorial-close" data-close type="button" aria-label="Close">×</button>
+      </header>
+      <p class="tutorial-hint">
+        Drag a dot — the <span class="hl-green">green centroid</span> follows.
+      </p>
+      <div class="tutorial-canvas-wrap">
+        <canvas id="tutorial-canvas" aria-label="Tutorial canvas"></canvas>
+      </div>
+      <div class="tutorial-controls">
+        <button id="tutorial-minus" type="button" class="tutorial-step" aria-label="Remove dot">−</button>
+        <span class="tutorial-count-label">Dots: <strong id="tutorial-count">5</strong></span>
+        <button id="tutorial-plus" type="button" class="tutorial-step" aria-label="Add dot">+</button>
+      </div>
+      <pre id="tutorial-math" class="tutorial-math"></pre>
+      <div class="tutorial-actions">
+        <button id="tutorial-demo" type="button" class="seed-btn seed-btn-alt">▶ Play Demo</button>
+        <button id="tutorial-done" type="button" class="seed-btn" data-close>Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="run-modal" class="modal modal-stacked" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card modal-card-mini" role="dialog" aria-labelledby="run-modal-title" aria-modal="true">
+      <header class="run-modal-header">
+        <h3 id="run-modal-title" class="run-modal-title">Run details</h3>
+        <button class="run-modal-close" data-close type="button" aria-label="Close">×</button>
+      </header>
+      <ul class="run-modal-rows">
+        <li><span>Score</span><strong id="run-modal-score"></strong></li>
+        <li><span>Mode</span><span id="run-modal-mode"></span></li>
+        <li><span>When</span><span id="run-modal-when"></span></li>
+        <li id="run-modal-seed-row" hidden><span>Seed</span><code id="run-modal-seed"></code></li>
+        <li id="run-modal-tag-row" hidden><span>Type</span><span id="run-modal-tag" class="recap-seed-tag"></span></li>
+      </ul>
+      <div class="run-modal-actions">
+        <button id="run-modal-copy" type="button" class="seed-btn" hidden>Copy Challenge Link</button>
+        <button id="run-modal-replay" type="button" class="seed-btn seed-btn-alt" hidden>Use this seed</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="perfect-overlay" class="perfect-overlay" role="status" aria-live="assertive" hidden>
+    <div class="perfect-overlay-card">
+      <p class="perfect-overlay-title">PERFECT!</p>
+      <p class="perfect-overlay-sub">Flawless run · 100/100</p>
     </div>
   </div>
 
