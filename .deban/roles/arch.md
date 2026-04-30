@@ -18,7 +18,7 @@ status: active
 
 ## Dead Ends
 
-- **Originally separate cache logic for HTML vs assets had no version-bump escape hatch** (2026-04-30) — when CSS rules changed, the new SW would install but stay "waiting" until the user clicked Refresh. If they reloaded without clicking Refresh, they got fresh HTML against stale CSS — looked like the new feature was broken. Mitigated by `!important` on critical rules + clearer toast UX, not by a true cache strategy fix. The architectural fix (per-asset query-string cache busting on version bump, or auto-skipWaiting) is a future cleanup.
+- **Originally separate cache logic for HTML vs assets had no version-bump escape hatch** (2026-04-30) — when CSS rules changed, the new SW would install but stay "waiting" until the user clicked Refresh. If they reloaded without clicking Refresh, they got fresh HTML against stale CSS — looked like the new feature was broken. Mitigated by `!important` on critical rules + clearer toast UX, not by a true cache strategy fix. The architectural fix (per-asset query-string cache busting on version bump, or auto-skipWaiting) is a future cleanup. **RESOLVED in v1.50** by versioned query strings on CSS/JS (`styles.css?v=1.50`, `game.js?v=1.50`). Each release uses a different URL → SW cache miss on stale SW → network fetch → fresh asset served immediately. Even if the new SW is still in `waiting` state, the OLD SW transparently serves the NEW CSS because the query string doesn't match anything in its cache. HTML and SW must stay in lockstep on the version string; HTML carries comments noting this.
 
 ## Open Questions
 
