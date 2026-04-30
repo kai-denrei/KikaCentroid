@@ -143,15 +143,15 @@ function mkState() {
 // + recap title transformation.
 const HYPE_TIERS = [
   null, null,
-  { label: 'Daburu!' },
-  { label: 'Toripuru!' },
-  { label: '四連続!' },
-  { label: 'ペンタキル!' },
-  { label: 'Sex-tuple!' },
-  { label: 'Heptapod!' },
-  { label: 'Octopus!' },
-  { label: 'Penultimate!' },
-  { label: 'PERFECT!' },
+  { label: 'Daburu!',      desc: '2 spotless in a row' },
+  { label: 'Toripuru!',    desc: '3 spotless in a row' },
+  { label: '四連続!',       desc: '4 spotless in a row' },
+  { label: 'ペンタキル!',    desc: '5 spotless in a row' },
+  { label: 'Sex-tuple!',   desc: '6 spotless in a row' },
+  { label: 'Heptapod!',    desc: '7 spotless in a row' },
+  { label: 'Octopus!',     desc: '8 spotless in a row' },
+  { label: 'Penultimate!', desc: '9 spotless in a row' },
+  { label: 'PERFECT!',     desc: 'Flawless run · 10 of 10' },
 ];
 
 let S = mkState();
@@ -434,6 +434,11 @@ const dom = {
   recapSeedTag:  $('recap-seed-tag'),
   btnCopyChallenge: $('btn-copy-challenge'),
   recapAch:      $('recap-ach'),
+  btnViewAch:    $('btn-view-achievements'),
+  btnViewAchIdle: $('btn-view-achievements-idle'),
+  achModal:      $('achievements-modal'),
+  achModalCount: $('ach-modal-count'),
+  achModalList:  $('ach-modal-list'),
   runModal:      $('run-modal'),
   runModalTitle: $('run-modal-title'),
   runModalScore: $('run-modal-score'),
@@ -1172,9 +1177,70 @@ dom.btnCopyChallenge.addEventListener('click', async () => {
   } catch (_) { /* clipboard blocked */ }
 });
 
-dom.recapModal.addEventListener('click', (e) => {
+// Recap modal is intentionally NOT dismissed by backdrop tap — closing via
+// any path other than Play Again would land the user on a dead-round canvas
+// with no functional input (S.phase === 'recap', action button disabled).
+// The three buttons (Play Again / View Achievements / Share) are the only
+// supported exits from the Game Over screen.
+
+// ── Achievements modal ──────────────────────────────────────────────────
+function fmtUnlockDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+function renderAchievementsModal() {
+  const map = readAchievements();
+  const rows = [];
+  let unlockedCount = 0;
+  for (let tier = 2; tier <= MAX_ROUNDS; tier++) {
+    const cfg = HYPE_TIERS[tier];
+    if (!cfg) continue;
+    const rec = map[`tier_${tier}`];
+    const isUnlocked = !!(rec && rec.unlocked);
+    if (isUnlocked) unlockedCount++;
+    const cls = `ach-row ach-tier-${tier} ${isUnlocked ? 'is-unlocked' : 'is-locked'}`;
+    if (isUnlocked) {
+      const meta = `Unlocked ${fmtUnlockDate(rec.ts)}` +
+                   (rec.runSeed ? ` · ${rec.runSeed}` : '');
+      rows.push(
+        `<li class="${cls}">` +
+          `<span class="ach-row-marker" aria-hidden="true"></span>` +
+          `<div class="ach-row-body">` +
+            `<div class="ach-row-name">${cfg.label}</div>` +
+            `<div class="ach-row-desc">${cfg.desc}</div>` +
+            `<div class="ach-row-meta">${meta}</div>` +
+          `</div>` +
+        `</li>`
+      );
+    } else {
+      // Locked: name only — description stays a surprise until unlock.
+      rows.push(
+        `<li class="${cls}">` +
+          `<span class="ach-row-marker" aria-hidden="true"></span>` +
+          `<div class="ach-row-body">` +
+            `<div class="ach-row-name">${cfg.label}</div>` +
+          `</div>` +
+          `<span class="ach-row-status">Locked</span>` +
+        `</li>`
+      );
+    }
+  }
+  dom.achModalList.innerHTML = rows.join('');
+  dom.achModalCount.textContent = `${unlockedCount} / ${HYPE_TIERS.length - 2}`;
+}
+function openAchievementsModal() {
+  renderAchievementsModal();
+  dom.achModal.hidden = false;
+}
+dom.btnViewAch.addEventListener('click', openAchievementsModal);
+dom.btnViewAchIdle.addEventListener('click', openAchievementsModal);
+dom.achModal.addEventListener('click', (e) => {
   if (e.target instanceof HTMLElement && e.target.dataset.close !== undefined) {
-    dom.recapModal.hidden = true;
+    dom.achModal.hidden = true;
   }
 });
 

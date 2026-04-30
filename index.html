@@ -28,7 +28,7 @@
     <span class="brand-row">
       <span class="brand" aria-label="KikaCentroid">KikaCentroid</span>
       <!-- Keep this in sync with CACHE_VERSION in sw.js -->
-      <span id="app-version" class="version" aria-label="version">v1.47</span>
+      <span id="app-version" class="version" aria-label="version">v1.48</span>
     </span>
     <div class="toolbar-spacer"></div>
     <button id="btn-install" type="button" class="tbtn" hidden>Install</button>
@@ -141,10 +141,16 @@
           <strong>*A centroid</strong> is the <em>geometric center</em>, or "average position" of all points, within a two-dimensional shape or three-dimensional solid. Often referred to as the <strong class="hl-cyan">center of mass</strong> (for uniform density), it represents the point where lines of symmetry intersect and acts as the <em>center of gravity</em>.
         </p>
 
-        <button id="btn-tutorial" type="button" class="tutorial-btn">
-          <span class="tutorial-btn-icon" aria-hidden="true">▶</span>
-          Watch Tutorial?
-        </button>
+        <div class="idle-secondary-row">
+          <button id="btn-tutorial" type="button" class="tutorial-btn">
+            <span class="tutorial-btn-icon" aria-hidden="true">▶</span>
+            Watch Tutorial?
+          </button>
+          <button id="btn-view-achievements-idle" type="button" class="tutorial-btn">
+            <span class="tutorial-btn-icon" aria-hidden="true">★</span>
+            Achievements
+          </button>
+        </div>
       </section>
 
       <p id="hint-text" class="hint" hidden></p>
@@ -196,9 +202,25 @@
       <div class="hist-label">Achievements</div>
       <div id="recap-ach" class="recap-ach" aria-label="Achievement progress"></div>
 
-      <div class="modal-actions">
+      <div class="modal-actions modal-actions-stacked">
         <button id="btn-play-again" type="button" class="action-btn primary">Play Again</button>
+        <button id="btn-view-achievements" type="button" class="action-btn">View Achievements</button>
         <button id="btn-share" type="button" class="action-btn">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="achievements-modal" class="modal modal-stacked" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card ach-modal-card" role="dialog" aria-labelledby="ach-modal-title" aria-modal="true">
+      <header class="ach-modal-header">
+        <h3 id="ach-modal-title" class="ach-modal-title">Achievements</h3>
+        <span id="ach-modal-count" class="ach-modal-count" aria-label="Unlocked count"></span>
+        <button class="ach-modal-close" data-close type="button" aria-label="Close">×</button>
+      </header>
+      <ul id="ach-modal-list" class="ach-modal-list"></ul>
+      <div class="ach-modal-actions">
+        <button type="button" class="seed-btn ach-modal-back" data-close>← Back</button>
       </div>
     </div>
   </div>
