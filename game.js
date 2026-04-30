@@ -143,8 +143,8 @@ function mkState() {
 // + recap title transformation.
 const HYPE_TIERS = [
   null, null,
-  { label: 'Duo!' },
-  { label: 'Triple!' },
+  { label: 'Daburu!' },
+  { label: 'Toripuru!' },
   { label: '四連続!' },
   { label: 'ペンタキル!' },
   { label: 'Sex-tuple!' },
