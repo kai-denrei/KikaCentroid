@@ -142,7 +142,6 @@ button {
   white-space: nowrap;
 }
 .hud[hidden] { display: none; }
-.hud-icon { margin-right: 2px; }
 .hud-time {
   font-family: var(--digital);
   font-size: 13px;
@@ -300,26 +299,37 @@ button {
   z-index: 10;
   opacity: 0;
 }
+/* Spotless flash: a localized, smaller version of .perfect-overlay.
+   Boxed "Perfect" in indigo (matching .s-100 / the 100-score palette),
+   with a radial halo behind. Different font from the loss "-X" variant
+   above (digital → mono) since "Perfect" is a word, not a number. */
 .pts-flash.gain {
-  color: var(--green);
-  text-shadow: 0 0 16px var(--green-soft), 0 0 32px var(--green-soft);
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid #5b6cff;
+  border-radius: 4px;
+  background: rgba(91, 108, 255, 0.08);
+  color: #ffffff;
+  text-shadow: 0 0 10px #5b6cff, 0 0 20px rgba(91, 108, 255, 0.6);
+  box-shadow: 0 0 18px rgba(91, 108, 255, 0.45),
+              inset 0 0 8px rgba(91, 108, 255, 0.15);
 }
-/* Spotless halo — a smaller, localized cousin of .perfect-overlay's
-   radial cyan flash. Only shown on the gain variant; rendered behind the
-   text via a pseudo-element so it doesn't affect layout. Pulses outward
-   in lockstep with the float-up to land its peak at ~20% of the rise. */
 .pts-flash.gain::before {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 96px;
-  height: 96px;
-  margin-left: -48px;
-  margin-top: -48px;
+  width: 110px;
+  height: 110px;
+  margin-left: -55px;
+  margin-top: -55px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 255, 136, 0.55) 0%,
-                                      rgba(0, 255, 136, 0.15) 45%,
+  background: radial-gradient(circle, rgba(91, 108, 255, 0.55) 0%,
+                                      rgba(91, 108, 255, 0.15) 45%,
                                       transparent 70%);
   z-index: -1;
   pointer-events: none;
@@ -935,7 +945,6 @@ button {
   margin-bottom: 8px;
 }
 .unlock-banner[hidden] { display: none; }
-.unlock-icon { font-size: 22px; line-height: 1; }
 .unlock-text strong {
   display: block;
   font-size: 12px;
