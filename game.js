@@ -134,7 +134,9 @@ function mkState() {
     seedOrigin:  'random',        // 'random' | 'self' | 'foreign'
     seedAttempt: 0,               // device's Nth play of this seed (0 if no seed)
     longShotRound: 0,             // round nr that gets the long-shot puzzle
+    tetroRound:    0,             // round nr that gets a tetromino layout (Normal mode only)
     newAchievements: [],          // tier numbers unlocked for the FIRST time this run
+    modeUnlocks:   [],            // mode keys unlocked during THIS run, for recap
     tapRipple:       null,        // { x, y, t0 } — cyan ring expanding from tap
     spotlessRipple:  null,        // { x, y, t0 } — gold ring on spotless commit
     dotsAppearT0:    0,           // round-start timestamp for dot stagger fade-in
@@ -164,10 +166,71 @@ const timeouts = [];
 let cellPx = 20;            // current CSS px per cell, recomputed on resize
 let boardPx = GRID * cellPx;
 
-// Hard Mode persistence — unlock once the user breaks 91 total points.
-let hardUnlocked = localStorage.getItem('kc-hard-unlocked') === '1';
-let hardMode     = hardUnlocked && localStorage.getItem('kc-hard-mode-on') === '1';
-const UNLOCK_AT  = 91;
+// ── Game modes ───────────────────────────────────────────────────────────
+// Three mutually-exclusive modes. Normal is always available; the others
+// unlock via in-game milestones (see validate / showRecap).
+//   normal:    uniform random dot generation
+//   tetro:     tetrominoes (4-cell pieces)
+//   long_shot: skewed cluster + outlier generators (former HARD mode)
+const MODES = ['normal', 'tetro', 'long_shot'];
+const MODE_LABELS = { normal: 'Normal', tetro: 'Tetro', long_shot: 'Long Shot' };
+const MODE_STORAGE_KEYS = {
+  tetro:     'kc-tetro-unlocked',
+  long_shot: 'kc-longshot-unlocked',
+};
+
+// One-time migration: existing kc-hard-unlocked users are honored — they
+// already proved the skill that used to unlock HARD, so they get Long
+// Shot mode auto-unlocked. Legacy kc-hard-mode-on is dropped.
+(function migrateHardUnlock() {
+  try {
+    if (localStorage.getItem('kc-hard-unlocked') === '1' &&
+        localStorage.getItem('kc-longshot-unlocked') !== '1') {
+      localStorage.setItem('kc-longshot-unlocked', '1');
+    }
+    localStorage.removeItem('kc-hard-mode-on');
+  } catch (_) {}
+})();
+
+function isModeUnlocked(mode) {
+  if (mode === 'normal') return true;
+  const key = MODE_STORAGE_KEYS[mode];
+  return key ? localStorage.getItem(key) === '1' : false;
+}
+function unlockMode(mode) {
+  const key = MODE_STORAGE_KEYS[mode];
+  if (!key) return false;
+  if (localStorage.getItem(key) === '1') return false;
+  try { localStorage.setItem(key, '1'); } catch (_) {}
+  return true;
+}
+
+// Resolve the active mode: URL override (?mode=...) wins for ad-hoc /
+// hidden access without unlock check — convenient for sharing the
+// /tetro link. Otherwise persisted localStorage value, gated by unlock.
+function normalizeMode(s) {
+  if (!s) return null;
+  const m = s.toLowerCase().replace('-', '_');
+  return MODES.includes(m) ? m : null;
+}
+function resolveActiveMode() {
+  const url = normalizeMode(new URLSearchParams(location.search).get('mode'));
+  if (url) return url;
+  const stored = normalizeMode(localStorage.getItem('kc-mode'));
+  if (stored && isModeUnlocked(stored)) return stored;
+  return 'normal';
+}
+let activeMode = resolveActiveMode();
+
+function setActiveMode(mode) {
+  if (!MODES.includes(mode)) mode = 'normal';
+  activeMode = mode;
+  try {
+    if (mode === 'normal') localStorage.removeItem('kc-mode');
+    else                   localStorage.setItem('kc-mode', mode);
+  } catch (_) {}
+  syncModeBadge();
+}
 
 // Tap a cell = place + auto-validate after a brief delay so the orange
 // guess marker registers visually before the validate flash.
@@ -231,11 +294,9 @@ try { localStorage.removeItem('kc-oneshot-on'); } catch (_) {}
 // validate, so tier behavior can be exercised without grinding skill.
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 
-// Hidden Tetro mode (?mode=tetro, also reachable via /tetro/ which
-// redirects here). Replaces the dot-cluster generator with one that
-// places whole tetrominoes; centroid math is unchanged. Seeds, replays,
-// achievements all carry over.
-const TETRO_MODE = new URLSearchParams(location.search).get('mode') === 'tetro';
+// Convenience flag: derived from activeMode for places that just need to
+// know "are we in tetro?". Updated when setActiveMode runs.
+let TETRO_MODE = activeMode === 'tetro';
 
 // All 7 standard tetrominoes as arrays of cell-offset rotations. Each
 // rotation is a list of [dx, dy] from a (0,0) origin. Rotations omit
@@ -318,10 +379,11 @@ function generateTetrominoDots(pieces) {
 }
 
 // Map difficulty → piece count. Tetro is now strictly multi-piece — the
-// minimum is 2 even on round 1. HARD mode adds +1 across the board.
+// minimum is 2 even on round 1.
 function tetroPieceCount(round) {
-  const base = round <= 3 ? 2 : round <= 7 ? 3 : 4;
-  return Math.min(5, base + (hardMode ? 1 : 0));
+  if (round <= 3) return 2;
+  if (round <= 7) return 3;
+  return 4;
 }
 
 const schedule = (fn, ms) => {
@@ -353,10 +415,10 @@ const chebyshev = (a, b) =>
 // but the dots come from skewed distributions (cluster+outlier, two
 // asymmetric clusters, corner-heavy). Skew is the difficulty, not count.
 const diffFor = (round) => {
-  if (hardMode) {
-    if (round <= 3) return { name: 'HARD',    min: 5,  max: 9,  color: '#ff4444' };
-    if (round <= 7) return { name: 'EXTREME', min: 7,  max: 12, color: '#ff1a1a' };
-    return                 { name: 'INSANE',  min: 10, max: 14, color: '#ff0088' };
+  if (activeMode === 'long_shot') {
+    if (round <= 3) return { name: 'EDGE',    min: 5,  max: 9,  color: '#ff4444' };
+    if (round <= 7) return { name: 'WIDE',    min: 7,  max: 12, color: '#ff1a1a' };
+    return                 { name: 'EXTREME', min: 10, max: 14, color: '#ff0088' };
   }
   if (round <= 3) return { name: 'EASY',   min: 3, max: 8,  color: '#00ff88' };
   if (round <= 7) return { name: 'MEDIUM', min: 5, max: 10, color: '#ffaa00' };
@@ -564,7 +626,10 @@ const dom = {
   toast:         $('update-toast'),
   btnRefresh:    $('btn-refresh'),
   btnToastClose: $('btn-toast-close'),
-  hardToggle:    $('hard-toggle'),
+  modeBtn:       $('mode-btn'),
+  modeBadge:     $('mode-badge'),
+  modeModal:     $('mode-modal'),
+  modeRadial:    $('mode-radial'),
   unlockBanner:  $('unlock-banner'),
   recapTitle:    $('recap-title'),
   streakFlash:   $('streak-flash'),
@@ -820,13 +885,23 @@ function startRound(nr) {
   // point, not the dot count. RNG draws happen unconditionally so seeded
   // runs stay consistent regardless of which round was chosen.
   const n    = diff.min + Math.floor(rng() * (diff.max - diff.min + 1));
-  // Tetro mode replaces dot-cluster generation entirely with tetromino
-  // placement. Long-shot bias and HARD-mode skew don't apply in tetro;
-  // the geometry of placed tetrominoes provides its own variety.
-  const dots = TETRO_MODE                ? generateTetrominoDots(tetroPieceCount(nr))
-             : (nr === S.longShotRound)  ? generateLongShotDots()
-             : hardMode                  ? generateSkewedDots(n)
-             :                             generateUniformDots(n);
+  // Mode-driven generator. Tetro and Long Shot replace generation
+  // wholesale across all rounds. Normal mode rotates through three paths:
+  //   - tetroRound:    a 2-piece tetromino layout (unlock vector for Tetro)
+  //   - longShotRound: edge-cluster + opposite outliers
+  //   - default:       uniform random
+  let dots;
+  if (activeMode === 'tetro') {
+    dots = generateTetrominoDots(tetroPieceCount(nr));
+  } else if (activeMode === 'long_shot') {
+    dots = generateSkewedDots(n);
+  } else if (nr === S.tetroRound) {
+    dots = generateTetrominoDots(2);
+  } else if (nr === S.longShotRound) {
+    dots = generateLongShotDots();
+  } else {
+    dots = generateUniformDots(n);
+  }
   const c    = centroid(dots);
 
   S.phase      = 'playing';
@@ -906,9 +981,19 @@ function validate() {
 
   // Long Shot — spotless guess on a centroid sitting 3+ cells from any dot.
   // Captures any round where the geometry forced a commitment to empty
-  // space, regardless of which dot pattern generator produced it.
+  // space, regardless of which dot pattern generator produced it. Also
+  // unlocks Long Shot mode (the achievement and mode share the name and
+  // share this trigger).
   if (spotless && nearestDotChebyshev(S.optimal, S.dots) >= 3) {
     tryUnlock('long_shot');
+    if (unlockMode('long_shot')) S.modeUnlocks.push('long_shot');
+  }
+
+  // Tetro mode unlock — spotless on the dedicated tetro round in Normal
+  // mode. (In Tetro mode itself, every round is tetro, so this trigger
+  // is gated to activeMode === 'normal'.)
+  if (spotless && activeMode === 'normal' && S.round === S.tetroRound) {
+    if (unlockMode('tetro')) S.modeUnlocks.push('tetro');
   }
 
   renderPotentialDots();                                // flash the distance dots red
@@ -1023,7 +1108,14 @@ function begin() {
 
   // Pick the long-shot round AFTER setting the RNG — so seeded runs get the
   // same surprise round as anyone else with that seed.
+  // Two surprise rounds per Normal-mode run, both deterministic under the
+  // active seed. Both rng() draws happen unconditionally so seeded runs
+  // stay consistent regardless of which mode is active. Tetro mode and
+  // Long Shot mode replace dot generation wholesale, so the surprise
+  // rounds aren't used there — but the rng draws still consume state to
+  // keep cross-mode determinism predictable.
   S.longShotRound = 1 + Math.floor(rng() * MAX_ROUNDS);
+  S.tetroRound    = 1 + Math.floor(rng() * MAX_ROUNDS);
 
   S.phase = 'countdown';
   showBoard();
@@ -1213,17 +1305,25 @@ function showRecap() {
   const max   = MAX_ROUNDS * ROUND_POTENTIAL;
   const total = S.totalScore;
 
-  // Hard Mode unlock check — one-time event when total first crosses 91.
-  const newlyUnlocked = total >= UNLOCK_AT && !hardUnlocked;
-  if (newlyUnlocked) {
-    hardUnlocked = true;
-    localStorage.setItem('kc-hard-unlocked', '1');
-    syncHardToggle();
+  // Mode-unlock banner — shown if any mode was newly unlocked during
+  // this run (Tetro from spotless on the dedicated round, Long Shot from
+  // the centroid-3+-cells achievement). Multiple unlocks in the same
+  // run all share one banner with combined text.
+  if (S.modeUnlocks.length) {
+    const names = S.modeUnlocks.map(m => MODE_LABELS[m]).join(' & ');
+    dom.unlockBanner.querySelector('.unlock-text strong').textContent =
+      `${names} Mode Unlocked`;
+    dom.unlockBanner.querySelector('.unlock-sub').textContent =
+      'Pick it from [MODE] in the toolbar.';
+    dom.unlockBanner.hidden = false;
+  } else {
+    dom.unlockBanner.hidden = true;
   }
-  dom.unlockBanner.hidden = !newlyUnlocked;
 
-  // Append this run to recent-history and render the sparkline.
-  const recent = pushRunHistory(total, hardMode, S.seed, S.seedAttempt, S.seedOrigin);
+  // Append this run to recent-history and render the sparkline. The
+  // legacy `hard` flag in records is preserved for old data; new records
+  // store false (hard is no longer a separate concept).
+  const recent = pushRunHistory(total, false, S.seed, S.seedAttempt, S.seedOrigin);
   renderRunHistory(recent);
 
   // Run-level stats — needed both for the display and for skill unlocks.
@@ -1320,7 +1420,6 @@ function showBoard() {
   dom.scoreRow.hidden      = false;
   dom.hudDiff.hidden       = false;
   dom.hudTimerWrap.hidden  = false;
-  // hard-toggle stays visible in toolbar — click is gated by phase check
   sizeBoard();
 }
 function hideBoard() {
@@ -1332,7 +1431,6 @@ function hideBoard() {
   dom.hudTimerWrap.hidden  = true;
   hideHalo();
   disarmReset();
-  syncHardToggle();
 }
 
 // ── RESET button (two-stage) ─────────────────────────────────────────────
@@ -1360,7 +1458,7 @@ function abandonRun() {
   const snap = { seed: S.seed, attempt: S.seedAttempt, origin: S.seedOrigin };
   schedule(() => {
     dom.resetOverlay.hidden = true;
-    pushRunHistory(0, hardMode, snap.seed, snap.attempt, snap.origin);
+    pushRunHistory(0, false, snap.seed, snap.attempt, snap.origin);
     hardReset();
     hideBoard();
     updateUI();
@@ -1468,10 +1566,10 @@ dom.btnPlayAgain.addEventListener('click', () => {
 });
 
 function buildChallengeUrl(seed) {
-  // Preserve mode=tetro on challenge-share links so recipients land in the
-  // same variant. Other query params are dropped — keep the share URL
-  // minimal and predictable.
-  const q = TETRO_MODE ? '?mode=tetro' : '';
+  // Preserve the active non-default mode on challenge-share links so
+  // recipients land in the same variant. Other query params are dropped —
+  // keep the share URL minimal and predictable.
+  const q = activeMode === 'normal' ? '' : `?mode=${activeMode}`;
   return `${location.origin}${location.pathname}${q}#s=${seed}`;
 }
 dom.btnCopyChallenge.addEventListener('click', async () => {
@@ -1715,32 +1813,59 @@ function flashTbtn(btn, msg, ms = 1500) {
   sx.fillRect(sOpt.x * SCELL + 2, sOpt.y * SCELL + 2, SCELL - 4, SCELL - 4);
 })();
 
-// ── Hard Mode toggle (toolbar pill, left of LINK) ────────────────────────
-// Pre-unlock: .locked → visibility:hidden, slot reserved so the toolbar
-// doesn't shift the moment unlock happens.
-function syncHardToggle() {
-  dom.hardToggle.classList.toggle('locked', !hardUnlocked);
-  dom.hardToggle.classList.toggle('on', hardMode);
-  dom.hardToggle.setAttribute('aria-pressed', hardMode ? 'true' : 'false');
-  dom.hardToggle.setAttribute('aria-hidden', hardUnlocked ? 'false' : 'true');
-  dom.hardToggle.tabIndex = hardUnlocked ? 0 : -1;
-  dom.hardToggle.title = hardUnlocked ? `Hard Mode: ${hardMode ? 'On' : 'Off'}` : '';
+// ── Mode picker ──────────────────────────────────────────────────────────
+// Toolbar [MODE] button opens a modal with a radial menu of three modes:
+// Normal / Tetro / Long Shot. Locked modes show greyed-out and reject
+// clicks. Active mode is highlighted. Selection persists to localStorage
+// (kc-mode); the URL ?mode=... still works as a one-time bypass.
+function syncModeBadge() {
+  TETRO_MODE = activeMode === 'tetro';
+  if (!dom.modeBadge) return;
+  if (activeMode === 'normal') {
+    dom.modeBadge.hidden = true;
+    dom.modeBadge.className = 'mode-badge';
+  } else {
+    dom.modeBadge.hidden = false;
+    dom.modeBadge.textContent = MODE_LABELS[activeMode].toUpperCase();
+    dom.modeBadge.className = `mode-badge mode-${activeMode.replace('_', '-')}`;
+  }
 }
-dom.hardToggle.addEventListener('click', () => {
-  if (!hardUnlocked) return;
-  if (S.phase !== 'idle' && S.phase !== 'recap') return;   // only outside active play
-  hardMode = !hardMode;
-  localStorage.setItem('kc-hard-mode-on', hardMode ? '1' : '0');
-  syncHardToggle();
+function renderModeOptions() {
+  const buttons = dom.modeRadial.querySelectorAll('.mode-option');
+  buttons.forEach(btn => {
+    const mode = btn.dataset.mode;
+    const unlocked = isModeUnlocked(mode);
+    const active   = mode === activeMode;
+    btn.classList.toggle('is-active',   active);
+    btn.classList.toggle('is-locked',   !unlocked);
+    btn.classList.toggle('is-unlocked', unlocked && !active);
+    btn.disabled = !unlocked;
+    const status = btn.querySelector('.mode-status');
+    if (status) {
+      status.textContent = !unlocked ? 'Locked'
+                          : active   ? 'Active'
+                          :            '';
+    }
+  });
+}
+dom.modeBtn.addEventListener('click', () => {
+  if (S.phase !== 'idle' && S.phase !== 'recap') return;
+  renderModeOptions();
+  openModal(dom.modeModal);
 });
-syncHardToggle();
-
-// Tetro mode badge — toolbar indicator only. The TETRO_MODE constant
-// drives all game logic branches elsewhere.
-if (TETRO_MODE) {
-  const badge = $('mode-badge');
-  if (badge) badge.hidden = false;
-}
+dom.modeModal.addEventListener('click', (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.dataset.close !== undefined) {
+    closeModal(dom.modeModal);
+    return;
+  }
+  const btn = e.target.closest('.mode-option');
+  if (btn && !btn.disabled) {
+    setActiveMode(btn.dataset.mode);
+    closeModal(dom.modeModal);
+  }
+});
+syncModeBadge();
 
 // ── Seed panel ───────────────────────────────────────────────────────────
 // Rotate the seed input's placeholder through fresh random samples so the
