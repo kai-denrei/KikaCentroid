@@ -354,36 +354,37 @@ button {
   opacity: 0;
 }
 /* Spotless flash: a localized, smaller version of .perfect-overlay.
-   Boxed "Perfect" in indigo (matching .s-100 / the 100-score palette),
-   with a radial halo behind. Different font from the loss "-X" variant
-   above (digital → mono) since "Perfect" is a word, not a number. */
+   Boxed "Perfect" — white text inside a white border, with a cyan
+   ambient glow (matching the full-screen perfect-overlay's palette).
+   Different font from the loss "-X" variant above (digital → mono)
+   since "Perfect" is a word, not a number. */
 .pts-flash.gain {
   font-family: var(--mono);
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border: 1px solid #5b6cff;
-  border-radius: 4px;
-  background: rgba(91, 108, 255, 0.08);
+  padding: 6px 14px;
+  border: 1.5px solid #ffffff;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
   color: #ffffff;
-  text-shadow: 0 0 10px #5b6cff, 0 0 20px rgba(91, 108, 255, 0.6);
-  box-shadow: 0 0 18px rgba(91, 108, 255, 0.45),
-              inset 0 0 8px rgba(91, 108, 255, 0.15);
+  text-shadow: 0 0 8px #ffffff, 0 0 18px rgba(0, 212, 255, 0.55);
+  box-shadow: 0 0 22px rgba(0, 212, 255, 0.55),
+              inset 0 0 10px rgba(0, 212, 255, 0.18);
 }
 .pts-flash.gain::before {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 110px;
-  height: 110px;
-  margin-left: -55px;
-  margin-top: -55px;
+  width: 130px;
+  height: 130px;
+  margin-left: -65px;
+  margin-top: -65px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(91, 108, 255, 0.55) 0%,
-                                      rgba(91, 108, 255, 0.15) 45%,
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.55) 0%,
+                                      rgba(0, 212, 255, 0.15) 45%,
                                       transparent 70%);
   z-index: -1;
   pointer-events: none;
