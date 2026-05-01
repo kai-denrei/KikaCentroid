@@ -967,7 +967,11 @@ function validate() {
   dom.ptsFlash.classList.toggle('gain', spotless);
   dom.ptsFlash.textContent = spotless ? 'Perfect' : `−${deductions}`;
   dom.ptsFlash.style.left = `${(S.guess.x + 0.5) * cellPx}px`;
-  dom.ptsFlash.style.top  = `${S.guess.y * cellPx - 8}px`;
+  // Spotless gets a higher anchor (1 full cell above the guess cell) so
+  // there's clean breathing room around the larger boxed "Perfect"; the
+  // loss variant stays close to the cell.
+  const flashTopOffset = spotless ? cellPx : 8;
+  dom.ptsFlash.style.top  = `${S.guess.y * cellPx - flashTopOffset}px`;
   dom.ptsFlash.classList.remove('rising');
   void dom.ptsFlash.offsetWidth;            // restart animation
   dom.ptsFlash.classList.add('rising');
@@ -1000,7 +1004,11 @@ function validate() {
   updateUI(); draw();
 
   // Tier 10 = flawless run; let the overlay breathe before the recap modal.
-  const postDelay = S.perfectStreak >= MAX_ROUNDS ? 3000 : 1000;
+  // Spotless rounds get extra dwell so the longer Perfect-flash animation
+  // (1200ms with hold phase) finishes before the next round begins.
+  const postDelay = S.perfectStreak >= MAX_ROUNDS ? 3000
+                  : spotless                       ? 1500
+                  :                                  1000;
   schedule(() => {
     dom.ptsFlash.hidden = true;
     const next = S.round + 1;
