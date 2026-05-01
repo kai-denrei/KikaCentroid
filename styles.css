@@ -364,7 +364,7 @@ button {
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 6px 14px;
+  padding: 12px 24px;
   border: 1.5px solid #ffffff;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -378,10 +378,10 @@ button {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 130px;
-  height: 130px;
-  margin-left: -65px;
-  margin-top: -65px;
+  width: 160px;
+  height: 160px;
+  margin-left: -80px;
+  margin-top: -80px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(0, 212, 255, 0.55) 0%,
                                       rgba(0, 212, 255, 0.15) 45%,
@@ -395,19 +395,31 @@ button {
 .pts-flash.rising {
   animation: pts-rise 600ms ease-out forwards;
 }
+/* Perfect variant: longer total runtime with an explicit hold phase so
+   the celebration lingers — appear → dwell → float away. The loss
+   variant keeps the original quicker pts-rise. */
+.pts-flash.rising.gain {
+  animation: pts-rise-perfect 1200ms cubic-bezier(.2, .8, .3, 1) forwards;
+}
 .pts-flash.rising.gain::before {
-  animation: pts-halo 700ms ease-out forwards;
+  animation: pts-halo-perfect 1200ms cubic-bezier(.2, .8, .3, 1) forwards;
 }
 @keyframes pts-rise {
   0%   { opacity: 0; transform: translate(-50%, -100%); }
   15%  { opacity: 1; transform: translate(-50%, -110%); }
   100% { opacity: 0; transform: translate(-50%, -160%); }
 }
-@keyframes pts-halo {
-  0%   { transform: scale(0.4);  opacity: 0; }
-  18%  { transform: scale(1.0);  opacity: 1; }
-  45%  { transform: scale(1.35); opacity: 0.7; }
-  100% { transform: scale(2.0);  opacity: 0; }
+@keyframes pts-rise-perfect {
+  0%   { opacity: 0; transform: translate(-50%, -100%); }
+  12%  { opacity: 1; transform: translate(-50%, -105%); }
+  60%  { opacity: 1; transform: translate(-50%, -115%); }
+  100% { opacity: 0; transform: translate(-50%, -170%); }
+}
+@keyframes pts-halo-perfect {
+  0%   { transform: scale(0.3);  opacity: 0; }
+  15%  { transform: scale(1.0);  opacity: 1; }
+  55%  { transform: scale(1.4);  opacity: 0.6; }
+  100% { transform: scale(2.4);  opacity: 0; }
 }
 
 /* Streak callout — fires on consecutive spotless rounds (≥2). Sits above
