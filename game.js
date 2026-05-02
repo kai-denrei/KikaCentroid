@@ -141,6 +141,9 @@ function mkState() {
     spotlessRipple:  null,        // { x, y, t0 } — gold ring on spotless commit
     dotsAppearT0:    0,           // round-start timestamp for dot stagger fade-in
     validateAnimT0:  0,           // validate timestamp for vector line + centroid reveal
+    blindPhase:      null,        // 'memorize' | 'intuition' (Blind mode only)
+    blindWaveT0:     0,           // wave start timestamp (Blind memorize phase)
+    blindWaveOrder:  [],          // permutation of dot indices → arrival order
   };
 }
 
@@ -167,16 +170,18 @@ let cellPx = 20;            // current CSS px per cell, recomputed on resize
 let boardPx = GRID * cellPx;
 
 // ── Game modes ───────────────────────────────────────────────────────────
-// Three mutually-exclusive modes. Normal is always available; the others
+// Four mutually-exclusive modes. Normal is always available; the others
 // unlock via in-game milestones (see validate / showRecap).
 //   normal:    uniform random dot generation
 //   tetro:     tetrominoes (4-cell pieces)
 //   long_shot: skewed cluster + outlier generators (former HARD mode)
-const MODES = ['normal', 'tetro', 'long_shot'];
-const MODE_LABELS = { normal: 'Normal', tetro: 'Tetro', long_shot: 'Long Shot' };
+//   blind:     dots ripple in/out (memorize), then guess on empty board
+const MODES = ['normal', 'tetro', 'long_shot', 'blind'];
+const MODE_LABELS = { normal: 'Normal', tetro: 'Tetro', long_shot: 'Long Shot', blind: 'Blind' };
 const MODE_STORAGE_KEYS = {
   tetro:     'kc-tetro-unlocked',
   long_shot: 'kc-longshot-unlocked',
+  blind:     'kc-blind-unlocked',
 };
 
 // One-time migration: existing kc-hard-unlocked users are honored — they
@@ -254,6 +259,7 @@ function isAnimating(now) {
     if (now - S.dotsAppearT0 < totalReveal) return true;
   }
   if (S.validateAnimT0 && now - S.validateAnimT0 < ANIM_VALIDATE_MS) return true;
+  if (S.blindPhase === 'memorize') return true;
   return false;
 }
 // Animated modal show/hide. Two-phase open (set hidden=false, then in the
@@ -293,6 +299,24 @@ try { localStorage.removeItem('kc-oneshot-on'); } catch (_) {}
 // DEBUG mode (?debug=1) — paints the true centroid in light-grey before
 // validate, so tier behavior can be exercised without grinding skill.
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+// DEBUG2 (?debug=2) — surfaces a floating panel with live sliders for the
+// BLIND wave parameters (stagger / fade-in / linger / fade-out) so the
+// rhythm can be tuned by feel without a code edit.
+const DEBUG2 = new URLSearchParams(location.search).get('debug') === '2';
+
+// ── BLIND mode wave parameters ───────────────────────────────────────────
+// Each dot's life: fade-in → linger → fade-out. New dots arrive every
+// STAGGER_MS. With defaults (1200ms life / 400ms stagger), ~3 dots are
+// visible at peak. Tunable live via the ?debug=2 panel.
+const BLIND = {
+  stagger: 150,
+  fadeIn:  500,
+  linger:  1400,
+  fadeOut: 400,
+};
+const blindLifetime = () => BLIND.fadeIn + BLIND.linger + BLIND.fadeOut;
+const blindWaveDurationMs = (n) =>
+  BLIND.stagger * Math.max(0, n - 1) + blindLifetime();
 
 // Convenience flag: derived from activeMode for places that just need to
 // know "are we in tetro?". Updated when setActiveMode runs.
@@ -731,33 +755,61 @@ function draw() {
 
   const now = performance.now();
 
-  // Dots — staggered fade-in (scale 1.5→1.0, opacity 0→1) when a fresh
-  // round just started. Each dot's animation starts ANIM_DOT_STAGGER_MS
-  // after the previous one. After all dots finish, the static path runs.
+  // Dots — three render paths:
+  //   1. BLIND/memorize: each dot fades in → lingers → fades out per wave.
+  //      Arrival order is S.blindWaveOrder[i] (random permutation).
+  //   2. BLIND/intuition (pre-validate): board is blank, no dots drawn.
+  //   3. Default: staggered fade-in once at round start, then static.
   ctx.fillStyle = COLORS.dot;
-  for (let i = 0; i < S.dots.length; i++) {
-    const d = S.dots[i];
-    let alpha = 1, scale = 1;
-    if (S.dotsAppearT0) {
-      const localT = now - S.dotsAppearT0 - i * ANIM_DOT_STAGGER_MS;
-      const p = Math.max(0, Math.min(1, localT / ANIM_DOT_FADEIN_MS));
-      // Ease-out quad
-      const eased = 1 - (1 - p) * (1 - p);
-      alpha = eased;
-      scale = 0.6 + 0.4 * eased;       // 0.6 → 1.0
-      if (alpha <= 0) continue;
+  const blindActive = activeMode === 'blind' && S.blindPhase && !S.showResult;
+  if (blindActive && S.blindPhase === 'intuition') {
+    // skip dots entirely
+  } else {
+    for (let i = 0; i < S.dots.length; i++) {
+      const d = S.dots[i];
+      let alpha = 1, scale = 1;
+      if (blindActive && S.blindPhase === 'memorize') {
+        const slot   = S.blindWaveOrder[i] ?? i;
+        const tArr   = slot * BLIND.stagger;
+        const tLocal = now - S.blindWaveT0 - tArr;
+        if (tLocal <= 0) continue;
+        if (tLocal < BLIND.fadeIn) {
+          const p = tLocal / BLIND.fadeIn;
+          const eased = 1 - (1 - p) * (1 - p);
+          alpha = eased;
+          scale = 0.6 + 0.4 * eased;
+        } else if (tLocal < BLIND.fadeIn + BLIND.linger) {
+          alpha = 1; scale = 1;
+        } else if (tLocal < BLIND.fadeIn + BLIND.linger + BLIND.fadeOut) {
+          const p = (tLocal - BLIND.fadeIn - BLIND.linger) / BLIND.fadeOut;
+          const eased = p * p;
+          alpha = 1 - eased;
+          scale = 1 - 0.2 * eased;
+        } else {
+          continue;
+        }
+      } else if (S.dotsAppearT0) {
+        const localT = now - S.dotsAppearT0 - i * ANIM_DOT_STAGGER_MS;
+        const p = Math.max(0, Math.min(1, localT / ANIM_DOT_FADEIN_MS));
+        const eased = 1 - (1 - p) * (1 - p);
+        alpha = eased;
+        scale = 0.6 + 0.4 * eased;
+        if (alpha <= 0) continue;
+      }
+      const cx = d.x * cellPx + cellPx / 2;
+      const cy = d.y * cellPx + cellPx / 2;
+      const half = (cellPx - 4) / 2 * scale;
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
     }
-    const cx = d.x * cellPx + cellPx / 2;
-    const cy = d.y * cellPx + cellPx / 2;
-    const half = (cellPx - 4) / 2 * scale;
-    ctx.globalAlpha = alpha;
-    ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
   }
   ctx.globalAlpha = 1;
 
   // DEBUG: light-grey centroid hint before validate. Painted under guess
   // so the orange/red guess marker stays the visually dominant cell.
-  if (DEBUG && S.optimal && !S.showResult && S.phase === 'playing') {
+  // Suppressed in Blind/memorize — defeats the purpose if you can see it.
+  if (DEBUG && S.optimal && !S.showResult && S.phase === 'playing'
+      && S.blindPhase !== 'memorize') {
     ctx.fillStyle = 'rgba(220, 220, 220, 0.45)';
     ctx.fillRect(S.optimal.x * cellPx + 3, S.optimal.y * cellPx + 3, cellPx - 6, cellPx - 6);
   }
@@ -866,6 +918,9 @@ dom.canvas.addEventListener('pointerleave', () => {
 dom.canvas.addEventListener('pointerdown', (e) => {
   if (S.phase !== 'playing' || S.showResult) return;
   if (S.guess) return;          // already committed this round; ignore extra taps
+  // Blind mode: ignore taps during the memorize wave; you must wait for
+  // the dots to fully fade before committing.
+  if (S.blindPhase === 'memorize') return;
   const cell = cellAt(e);
   if (!cell) return;
   e.preventDefault();
@@ -895,6 +950,10 @@ function startRound(nr) {
     dots = generateTetrominoDots(tetroPieceCount(nr));
   } else if (activeMode === 'long_shot') {
     dots = generateSkewedDots(n);
+  } else if (activeMode === 'blind') {
+    // Blind reuses Normal's uniform distribution — the difficulty comes
+    // from never seeing the cluster as a whole, not from the dot pattern.
+    dots = generateUniformDots(n);
   } else if (nr === S.tetroRound) {
     dots = generateTetrominoDots(2);
   } else if (nr === S.longShotRound) {
@@ -913,21 +972,54 @@ function startRound(nr) {
   S.timer      = 0;
   S.penalty    = 0;
   S.hover      = null;
+  S.blindPhase = null;
+  S.blindWaveT0 = 0;
+  S.blindWaveOrder = [];
 
   stopTimer();
-  timerInterval = setInterval(() => {
-    if (S.phase !== 'playing' || S.showResult) return;
-    if (document.hidden) return;             // pause when tab/app backgrounded
-    S.timer++;
-    if (S.timer > PENALTY_AT) S.penalty++;
-    updateUI();
-  }, 1000);
+  // In Blind mode the timer + halo don't start until the wave finishes
+  // and the player enters the intuition phase. Everywhere else: start now.
+  const startGameClock = () => {
+    timerInterval = setInterval(() => {
+      if (S.phase !== 'playing' || S.showResult) return;
+      if (document.hidden) return;             // pause when tab/app backgrounded
+      S.timer++;
+      if (S.timer > PENALTY_AT) S.penalty++;
+      updateUI();
+    }, 1000);
+    startHalo();                               // 3s shrinking ring
+  };
 
   renderPotentialDots();                     // reset the 10 dots for this round
-  startHalo();                               // 3s shrinking ring
-  S.dotsAppearT0 = performance.now();        // round-start dot stagger fade-in
   S.tapRipple = null;
   S.spotlessRipple = null;
+
+  if (activeMode === 'blind') {
+    // Memorize phase: ripple dots in/out per BLIND wave params, then flip
+    // to intuition (empty board) for the actual guess.
+    S.blindPhase = 'memorize';
+    S.blindWaveT0 = performance.now();
+    S.dotsAppearT0 = 0;                        // disable default fade-in path
+    // Random arrival order so the player can't latch onto a spatial pattern.
+    const order = [];
+    for (let i = 0; i < dots.length; i++) order.push(i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    S.blindWaveOrder = order;
+    schedule(() => {
+      // Round may have been abandoned mid-wave — bail if so.
+      if (S.phase !== 'playing' || S.blindPhase !== 'memorize') return;
+      S.blindPhase = 'intuition';
+      startGameClock();
+      updateUI(); draw();
+    }, blindWaveDurationMs(dots.length));
+  } else {
+    S.dotsAppearT0 = performance.now();        // round-start dot stagger fade-in
+    startGameClock();
+  }
+
   updateUI(); draw();
   ensureAnimLoop();
 }
@@ -1345,6 +1437,13 @@ function showRecap() {
   if (total >= 90) tryUnlock('marksman');
   if (total >= 90 && avgTimerRaw <= 1.0) tryUnlock('speed_demon');
 
+  // Blind mode unlock — hit ≥ 94 in a single run (in any other mode). The
+  // bar sits one notch below Sharpshooter so it gates Blind on consistent
+  // sharp play without demanding a near-perfect run.
+  if (total >= 94 && activeMode !== 'blind') {
+    if (unlockMode('blind')) S.modeUnlocks.push('blind');
+  }
+
   renderAchievements();                 // include any skill unlocks just fired
   const avg  = avgRound.toFixed(1);
   const avgT = avgTimerRaw.toFixed(1);
@@ -1541,7 +1640,9 @@ function updateUI() {
     dom.hint.textContent = '';
   } else if (p === 'playing' && !S.guess) {
     dom.hint.hidden = false;
-    dom.hint.textContent = 'Tap a cell to commit your guess';
+    if (S.blindPhase === 'memorize')      dom.hint.textContent = 'Feel the center…';
+    else if (S.blindPhase === 'intuition') dom.hint.textContent = 'Tap where the center was';
+    else                                   dom.hint.textContent = 'Tap a cell to commit your guess';
   } else {
     dom.hint.hidden = false;
     dom.hint.textContent = '…';
@@ -1874,6 +1975,54 @@ dom.modeModal.addEventListener('click', (e) => {
   }
 });
 syncModeBadge();
+
+// ── BLIND wave-tuning panel (?debug=2) ───────────────────────────────────
+// Floating overlay with four sliders + readouts. Edits BLIND.* live, so
+// the next dot's frame uses the new values. Total wave duration is shown
+// derived from current settings (assumes n=8 dots).
+function mountBlindDebugPanel() {
+  if (!DEBUG2) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'blind-debug';
+  wrap.innerHTML = `
+    <div class="bd-title">BLIND wave</div>
+    <label><span>stagger</span>
+      <input type="range" min="80" max="900" step="10" data-key="stagger">
+      <output></output></label>
+    <label><span>fade-in</span>
+      <input type="range" min="40" max="800" step="10" data-key="fadeIn">
+      <output></output></label>
+    <label><span>linger</span>
+      <input type="range" min="0" max="2000" step="20" data-key="linger">
+      <output></output></label>
+    <label><span>fade-out</span>
+      <input type="range" min="40" max="800" step="10" data-key="fadeOut">
+      <output></output></label>
+    <div class="bd-derived"></div>
+  `;
+  document.body.appendChild(wrap);
+  const derived = wrap.querySelector('.bd-derived');
+  const labels  = wrap.querySelectorAll('label');
+  const refresh = () => {
+    labels.forEach(l => {
+      const input = l.querySelector('input');
+      const out   = l.querySelector('output');
+      input.value = String(BLIND[input.dataset.key]);
+      out.textContent = `${BLIND[input.dataset.key]}ms`;
+    });
+    const peak = (blindLifetime() / BLIND.stagger).toFixed(1);
+    derived.textContent =
+      `life ${blindLifetime()}ms · ~${peak} visible · 8-dot wave ${blindWaveDurationMs(8)}ms`;
+  };
+  wrap.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    BLIND[t.dataset.key] = parseInt(t.value, 10);
+    refresh();
+  });
+  refresh();
+}
+mountBlindDebugPanel();
 
 // ── Seed panel ───────────────────────────────────────────────────────────
 // Rotate the seed input's placeholder through fresh random samples so the

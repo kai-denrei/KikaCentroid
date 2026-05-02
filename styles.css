@@ -113,7 +113,61 @@ button {
 }
 .mode-badge.mode-tetro     { color: var(--cyan);     border-color: var(--cyan); }
 .mode-badge.mode-long-shot { color: var(--red-soft); border-color: var(--red-soft); }
+.mode-badge.mode-blind     { color: var(--amber);    border-color: var(--amber); }
 .mode-badge[hidden] { display: none; }
+
+/* BLIND wave-tuning panel — only mounted under ?debug=2. Bottom-left so
+   it doesn't sit over the canvas or the toolbar. Compact monospace. */
+#blind-debug {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 200;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink);
+  min-width: 220px;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#blind-debug .bd-title {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+#blind-debug label {
+  display: grid;
+  grid-template-columns: 56px 1fr 50px;
+  gap: 6px;
+  align-items: center;
+  margin: 3px 0;
+}
+#blind-debug label > span {
+  color: var(--ink-dim);
+}
+#blind-debug input[type="range"] {
+  width: 100%;
+  accent-color: var(--amber);
+}
+#blind-debug output {
+  text-align: right;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+#blind-debug .bd-derived {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-size: 9.5px;
+}
 
 /* Mode-selection modal. Three buttons in an equilateral triangle around
    a notional center (Normal at top, Tetro bottom-left, Long Shot
@@ -147,6 +201,8 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 .mode-option.pos-top { top: 0;    left: 50%; transform: translateX(-50%); }
+.mode-option.pos-tl  { top: 0;    left: 0;   }
+.mode-option.pos-tr  { top: 0;    right: 0;  }
 .mode-option.pos-bl  { bottom: 0; left: 0;   }
 .mode-option.pos-br  { bottom: 0; right: 0;  }
 .mode-option .mode-name {
@@ -184,6 +240,7 @@ button {
 /* Per-mode color hint when unlocked but not active. */
 .mode-option[data-mode="tetro"].is-unlocked .mode-name      { color: var(--cyan); }
 .mode-option[data-mode="long_shot"].is-unlocked .mode-name  { color: var(--red-soft); }
+.mode-option[data-mode="blind"].is-unlocked .mode-name      { color: var(--amber); }
 .toolbar-spacer { flex: 1; }
 
 .tbtn {
