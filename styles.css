@@ -576,6 +576,28 @@ button {
   50%      { transform: scale(1.03); box-shadow: 0 0 90px rgba(0, 212, 255, .80), inset 0 0 36px rgba(0, 212, 255, .28); }
 }
 
+/* Blind-unlock overlay — same structure as perfect-overlay, amber palette
+   to match the Blind mode badge. Fires once when ≥94 unlocks the mode. */
+.blind-unlock-overlay {
+  background: radial-gradient(circle at center, rgba(255, 170, 0, .22), rgba(5, 5, 10, .94));
+}
+.blind-unlock-overlay .perfect-overlay-card {
+  border-color: var(--amber);
+  background: rgba(255, 170, 0, .06);
+  box-shadow: 0 0 60px rgba(255, 170, 0, .55), inset 0 0 24px rgba(255, 170, 0, .15);
+  animation: blind-unlock-pulse 1.4s ease-in-out infinite;
+}
+.blind-unlock-overlay .perfect-overlay-title {
+  text-shadow: 0 0 20px var(--amber), 0 0 40px var(--amber);
+}
+.blind-unlock-overlay .perfect-overlay-sub {
+  color: var(--amber);
+}
+@keyframes blind-unlock-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 60px rgba(255, 170, 0, .55), inset 0 0 24px rgba(255, 170, 0, .15); }
+  50%      { transform: scale(1.03); box-shadow: 0 0 90px rgba(255, 170, 0, .80), inset 0 0 36px rgba(255, 170, 0, .28); }
+}
+
 /* Recap title gets a celebratory variant when the run was flawless. */
 .modal-title.perfect {
   color: var(--cyan);

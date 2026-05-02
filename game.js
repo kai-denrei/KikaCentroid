@@ -658,6 +658,7 @@ const dom = {
   recapTitle:    $('recap-title'),
   streakFlash:   $('streak-flash'),
   perfectOverlay: $('perfect-overlay'),
+  blindUnlockOverlay: $('blind-unlock-overlay'),
   seedPanel:     $('seed-panel'),
   seedInput:     $('seed-input'),
   seedUse:       $('seed-use'),
@@ -1092,6 +1093,12 @@ function validate() {
     if (unlockMode('tetro')) S.modeUnlocks.push('tetro');
   }
 
+  // One-Eyed King — landed exactly on the centroid in Blind mode. The
+  // dots were never visible at the moment of commit; pure intuition.
+  if (perfectAim && activeMode === 'blind') {
+    tryUnlock('one_eyed_king');
+  }
+
   renderPotentialDots();                                // flash the distance dots red
   updateUI(); draw();
 
@@ -1358,6 +1365,12 @@ const SKILL_ACHIEVEMENTS = [
   { key: 'speed_demon',
     label: 'Speed Demon',
     desc: 'Avg time ≤ 1.0s with score ≥ 90' },
+  { key: 'blind',
+    label: 'Blind',
+    desc: 'Unlocked Blind Mode' },
+  { key: 'one_eyed_king',
+    label: 'One-Eyed King',
+    desc: 'Perfect guess in Blind mode' },
 ];
 
 // Helper: how far is the (rounded) centroid from the nearest dot, by
@@ -1441,7 +1454,10 @@ function showRecap() {
   // bar sits one notch below Sharpshooter so it gates Blind on consistent
   // sharp play without demanding a near-perfect run.
   if (total >= 94 && activeMode !== 'blind') {
-    if (unlockMode('blind')) S.modeUnlocks.push('blind');
+    if (unlockMode('blind')) {
+      S.modeUnlocks.push('blind');
+      tryUnlock('blind');               // companion skill achievement
+    }
   }
 
   renderAchievements();                 // include any skill unlocks just fired
@@ -1515,7 +1531,18 @@ function showRecap() {
     dom.recapHist.appendChild(col);
   });
 
-  openModal(dom.recapModal);
+  // Blind unlock gets a dedicated full-screen overlay before the recap
+  // modal opens — same beat as the perfect-run overlay. Other unlocks
+  // still show via the in-recap banner only.
+  if (S.modeUnlocks.includes('blind') && dom.blindUnlockOverlay) {
+    dom.blindUnlockOverlay.hidden = false;
+    schedule(() => {
+      dom.blindUnlockOverlay.hidden = true;
+      openModal(dom.recapModal);
+    }, 2200);
+  } else {
+    openModal(dom.recapModal);
+  }
   updateUI();
 }
 
